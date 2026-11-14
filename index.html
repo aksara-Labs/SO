@@ -505,11 +505,82 @@
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
+  
+    /* ============================================================
+       v5 — layout HP rapi (satu layar scan) + perbaikan umum
+       ============================================================ */
+    .ver { font-size: .62rem; font-weight: 700; color: var(--muted); background: var(--soft2); padding: 2px 6px; border-radius: 6px; margin-left: 2px; letter-spacing: .02em; }
+    .gate-note { font-size: .9rem; color: var(--muted); line-height: 1.55; margin-bottom: 10px; }
+    .gate-info { font-size: .85rem; font-weight: 600; color: var(--bad-tx); background: var(--bad-bg); border: 1px solid var(--bad-bd); border-radius: 9px; padding: 8px 11px; margin-bottom: 12px; }
+    .gate-info b { color: var(--bad-tx); }
+    .gate-prev { font-size: .85rem; color: var(--muted); margin: 8px 2px 14px; min-height: 1.3em; }
+    #turunDate { margin-bottom: 0; }
+    .remote-inner .pc-skip { display: block; width: 100%; margin-top: 6px; padding: 12px; border: 0; background: none; color: var(--muted); font-size: .9rem; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+    /* tombol segmen: yang aktif jelas */
+    .seg { background: #fff; border: 1px solid var(--border); padding: 3px; gap: 3px; }
+    .seg button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .seg button.on { background: var(--brand); color: #fff; box-shadow: none; }
+
+    /* statistik & kartu kode: 2x2 di layar sempit */
+    @media (max-width: 600px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .stat { padding: 14px 8px 12px; text-align: left; padding-left: 14px; }
+      .stat .num { font-size: 1.9rem; }
+      .stat .label { font-size: .82rem; margin-top: 2px; }
+      .kcard { padding: 10px; }
+      .kcard .kh { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 6px; margin-bottom: 8px; }
+      .kcard .kh b { text-align: right; font-size: 1.05rem; }
+      .kcard .kh b small { font-size: .7rem; }
+      .kcard .kh > small { grid-column: 1 / -1; font-size: .7rem; }
+      .config-box input { font-size: .9rem; }
+    }
+
+    /* ----- HP sebagai alat scan: satu kolom, tanpa kartu bersarang ----- */
+    .view-scanner { padding-bottom: 16px; }
+    .view-scanner .header { flex-direction: row; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px; }
+    .view-scanner .header h1 { flex: 0 0 auto; font-size: 1rem; }
+    .view-scanner .header h1 svg { width: 28px; height: 28px; padding: 6px; }
+    .view-scanner .header .sub { margin: 0; flex: 1; min-width: 0; text-align: right; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .view-scanner .gear { position: static; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 36px; height: 36px; font-size: 1rem; }
+    .view-scanner .container { padding: 10px 10px 20px; }
+    .view-scanner #scanCard { background: none; border: 0; box-shadow: none; padding: 0; margin: 0; }
+    .view-scanner .seg { margin-bottom: 10px; }
+    .view-scanner .rak-bar { background: #fff; padding: 8px 10px; margin-bottom: 10px; }
+    .view-scanner .rak-title { font-size: .85rem; }
+    .view-scanner #camWrap { border-radius: 12px; margin-bottom: 10px; }
+    .view-scanner #scanResult { margin-bottom: 10px; }
+    .view-scanner #btnStartScan { min-height: 44px; }
+    .view-scanner .manual-input { margin-top: 10px; }
+    .view-scanner #scanLog { margin-top: 10px; }
+    .view-scanner #scanLog .log-row:nth-child(n+5) { display: none; }
+    .view-scanner .toast { bottom: 24px; }
+    .view-scanner .res-nf, .view-scanner .pc-nf { font-size: 1.35rem; }
+    .view-scanner .done-banner { margin-bottom: 10px; }
+    .view-scanner .phead { margin-bottom: 10px; }
+  
+    /* ---- aksen tepi: pakai inset shadow supaya sudut tidak melengkung aneh ---- */
+    .stat { border-top: 1px solid var(--border) !important; box-shadow: inset 0 3px 0 var(--ac, var(--brand)), var(--shadow); }
+    .result-box { border-left-width: 1px; box-shadow: inset 6px 0 0 var(--lc, var(--border)); padding-left: 20px; }
+    .result-box.success { --lc: var(--success); } .result-box.error { --lc: var(--danger); } .result-box.warning { --lc: var(--warning); }
+    .item { border-left: 1px solid var(--border); box-shadow: inset 5px 0 0 var(--kc, #cbd2dc); padding-left: 16px; }
+    .item.marked { border-left: 1px solid var(--ok-bd); box-shadow: inset 5px 0 0 var(--kc, var(--success)); }
+    .item.wajib { border-left: 1px solid var(--bad-bd); box-shadow: inset 5px 0 0 var(--danger); }
+    .pcard { border-top: 1px solid var(--border); box-shadow: inset 0 4px 0 var(--brand), var(--shadow); padding-top: 20px; }
+    .remote-inner .pcard { box-shadow: none; padding-top: 4px; border: 0; }
+    .kcard { display: flex; flex-direction: column; justify-content: space-between; }
+    .kcard .bar { margin-top: auto; }
+    .view-scanner .rak-info { font-size: .74rem; }
+  
+    .sync-status { min-height: 0; margin: 4px 0 0; } .sync-status:empty { display: none; }
+  
+    .torch.on { background: #facc15; color: #111827; }
+      .torch.zoom { right: 60px; font-weight: 800; font-size: .85rem; color: #fff; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg>Stock Scan</h1>
+    <h1><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg>Stock Scan <span class="ver">v5</span></h1>
     <div class="sub" id="headerSub">Hubungkan ke backend dulu</div>
     <button class="gear" id="btnGear" onclick="toggleSettings()" title="Pengaturan">⚙</button>
   </div>
@@ -566,7 +637,7 @@
           <div><div class="rak-title">Mode Rak <small>GE selain TV</small></div><div class="rak-info" id="rakInfo"></div></div>
           <select id="rakSelect" onchange="setRak(this.value)"></select>
         </div>
-        <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
+        <div id="camWrap" onclick="refocus()"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></button><button id="btnZoom" class="torch zoom hidden" onclick="event.stopPropagation();toggleZoom()">1×</button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
         <div id="scanResult"></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
@@ -626,11 +697,13 @@
   <div class="remote-modal hidden" id="remoteModal"><div class="remote-inner" id="remoteBody"></div></div>
   <div class="remote-modal hidden" id="dateModal" style="z-index:450"><div class="remote-inner">
     <div class="rm-title">Tanggal awal pemeriksaan</div>
-    <div style="font-size:.88rem;color:var(--muted);margin-bottom:14px;line-height:1.55">Di spreadsheet belum ada No Faktur berlatar merah. Pilih tanggal awal pemeriksaan: semua barang dari tanggal itu sampai No Faktur paling akhir akan diberi latar merah (wajib turun).</div>
+    <div class="gate-note">Belum ada No Faktur berlatar merah yang terbaca dari spreadsheet. Pilih tanggal awal: semua barang dari tanggal itu sampai No Faktur paling akhir akan diberi latar merah (wajib turun).</div>
+    <div class="gate-info" id="gateInfo"></div>
     <input type="date" id="turunDate" class="search-box" oninput="updateDatePreview()" />
-    <div id="datePreview" style="font-size:.85rem;color:var(--muted);margin:-2px 2px 14px;min-height:1.3em"></div>
+    <div id="datePreview" class="gate-prev"></div>
     <button class="btn btn-primary btn-block" id="btnDateApply" onclick="applyDateGate()">Tandai &amp; Mulai Scan</button>
-    <button class="btn btn-outline btn-block" style="margin-top:8px" onclick="closeDateGate()">Batal</button>
+    <button class="btn btn-outline btn-block" style="margin-top:8px" onclick="skipGate()">Sudah merah di spreadsheet, lewati</button>
+    <button class="pc-skip" onclick="closeDateGate()">Batal</button>
   </div></div>
   <div class="toast" id="toast"></div>
 
@@ -681,6 +754,8 @@
     }
     let stream = null, videoEl = null, detector = null, zxReader = null, zxHard = null, zxCanvas = null, zxN = 0, loopGen = 0, torchOn = false;
     let isScanning = false, camBusy = false, loopTimer = null;
+    let zxFallN = 0, zoomPref = 1, zoomMax = 1, zoomNow = 1;
+    let torchPref = false;   // pilihan flash terakhir: kamera dibuka lagi -> flash ikut seperti sebelumnya
     let lastScanned = '', lastScanTime = 0, lastDecodeAt = 0;
     let camHoldUntil = 0, camStatusKey = '';
     const scanLogs = [];
@@ -761,9 +836,9 @@
         }
       } catch (e) {} finally { pollBusy = false; }
     }
-    (function pollLoop() {   // terus-menerus, jeda sangat singkat (tidak menumpuk karena pollBusy)
+    setTimeout(function pollLoop() {   // terus-menerus, jeda sangat singkat (tidak menumpuk karena pollBusy)
       pollPend().finally(() => setTimeout(pollLoop, VIEW === 'display' ? 250 : 400));
-    })();
+    }, 0);
 
     function toggleSettings() {   // khusus HP: gear = buka/tutup pengaturan
       const onScan = document.getElementById('page-scan').classList.contains('active');
@@ -1639,7 +1714,7 @@
         try {
           const sup = await BarcodeDetector.getSupportedFormats();
           const f = ['code_39', 'code_93', 'code_128', 'codabar', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'qr_code', 'data_matrix'].filter(x => sup.includes(x));
-          if (f.length) { detector = new BarcodeDetector({ formats: f }); return; }
+          if (f.length) { detector = new BarcodeDetector({ formats: f }); }
         } catch (e) {}
       }
       if (window.ZXing) {
@@ -1658,10 +1733,13 @@
     }
 
     function decodeZx(v) {
-      const w = Math.min(v.videoWidth, 720), h = Math.round(v.videoHeight * w / v.videoWidth);
+      const vw = v.videoWidth, vh = v.videoHeight;
+      const sx = Math.round(vw * 0.03), sw = Math.round(vw * 0.94), sy = Math.round(vh * 0.12), sh = Math.round(vh * 0.76);
+      const sc = Math.min(1, 1800 / sw);
+      const w = Math.round(sw * sc), h = Math.round(sh * sc);
       if (!zxCanvas) zxCanvas = document.createElement('canvas');
-      zxCanvas.width = w; zxCanvas.height = h;
-      zxCanvas.getContext('2d', { willReadFrequently: true }).drawImage(v, 0, 0, w, h);
+      if (zxCanvas.width !== w || zxCanvas.height !== h) { zxCanvas.width = w; zxCanvas.height = h; }
+      zxCanvas.getContext('2d', { willReadFrequently: true }).drawImage(v, sx, sy, sw, sh, 0, 0, w, h);
       try {
         const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(zxCanvas)));
         return ((++zxN % 3 === 0) ? zxHard : zxReader).decodeWithState(bmp).getText();
@@ -1671,6 +1749,7 @@
     // Coba resolusi tinggi dulu, kalau gagal turun bertahap sampai kamera pasti terbuka
     async function openStream() {
       const tries = [
+        { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
         { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
         { video: { facingMode: 'environment' }, audio: false },
         { video: true, audio: false }
@@ -1700,7 +1779,7 @@
     }
 
     async function toggleScan() {
-      if (isScanning) stopScan();
+      if (isScanning) { torchPref = false; stopScan(); }
       else { window.__camRetried = false; startScan(); }
     }
 
@@ -1724,6 +1803,14 @@
         try {
           const caps = stream.getVideoTracks()[0].getCapabilities ? stream.getVideoTracks()[0].getCapabilities() : {};
           document.getElementById('btnTorch').classList.toggle('hidden', !caps.torch);
+          if (caps.torch && torchPref) {   // sebelumnya flash nyala -> nyalakan lagi; sebelumnya mati -> tetap mati
+            try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: true }] }); torchOn = true; }
+            catch (e) { torchOn = false; }
+          }
+          document.getElementById('btnTorch').classList.toggle('on', torchOn);
+          zoomMax = caps.zoom && caps.zoom.max ? caps.zoom.max : 1;
+          document.getElementById('btnZoom').classList.toggle('hidden', zoomMax <= 1.05);
+          if (zoomMax > 1.05) applyZoom(Math.min(zoomPref, zoomMax));
         } catch (e) {}
         isScanning = true;
         lastDecodeAt = Date.now();
@@ -1758,6 +1845,7 @@
             const r = await detector.detect(v);
             const hit = r.find(x => x.rawValue);
             if (hit) code = hit.rawValue; else if (r.length) seenButEmpty = true;
+            if (!code && zxReader && (++zxFallN % 3 === 0)) code = decodeZx(v);   // barcode rapat: ZXing teliti sebagai cadangan
           } else {
             code = decodeZx(v);
           }
@@ -1772,14 +1860,47 @@
       }
     }
 
+    function applyZoom(z) {
+      zoomNow = z;
+      const b = document.getElementById('btnZoom');
+      if (b) b.textContent = (Math.round(z * 10) / 10) + '×';
+      if (!stream) return;
+      stream.getVideoTracks()[0].applyConstraints({ advanced: [{ zoom: z }] }).catch(() => {});
+    }
+    function toggleZoom() {   // 1× -> 2× -> 3× -> 1× (sesuai kemampuan kamera): perbesar barcode kecil tanpa mendekat
+      const lv = [1, 2, 3].filter(x => x <= zoomMax + 0.01);
+      const i = lv.findIndex(x => Math.abs(x - zoomNow) < 0.05);
+      zoomPref = lv[(i + 1) % lv.length] || 1;
+      applyZoom(zoomPref);
+    }
+    async function refocus() {   // ketuk layar kamera = fokus ulang
+      if (!stream) return;
+      const t = stream.getVideoTracks()[0];
+      try { await t.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] }); } catch (e) {}
+      try { await t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+    }
+
     function toggleTorch() {
       if (!stream) return;
       torchOn = !torchOn;
-      stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => { torchOn = false; });
+      torchPref = torchOn;
+      document.getElementById('btnTorch').classList.toggle('on', torchOn);
+      stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => {
+        torchOn = false; torchPref = false;
+        document.getElementById('btnTorch').classList.remove('on');
+      });
     }
 
+    function resolveNf(raw) {
+      const c = cleanBarcode(raw), up = c.toUpperCase();
+      if (!itemIndex.size || itemIndex.has(up)) return c;
+      const runs = String(raw || '').match(/\d{8,}/g) || [];      // deret angka panjang di dalam teks barcode
+      for (const r of runs) if (itemIndex.has(r.toUpperCase())) return r;
+      for (const k of itemIndex.keys()) if (k.length >= 8 && up.includes(k)) return k;   // No Faktur ada di dalam teks
+      return c;
+    }
     function handleDecoded(raw) {
-      const c = cleanBarcode(raw);
+      const c = resolveNf(raw);
       if (!c) { setCamStatus('Kode terbaca tapi kosong', 'warn', 800); return; }
       const now = Date.now();
       lastDecodeAt = now;
@@ -1796,7 +1917,9 @@
       loopGen++;
       clearTimeout(loopTimer);
       torchOn = false;
+      document.getElementById('btnTorch').classList.remove('on');
       document.getElementById('btnTorch').classList.add('hidden');
+      document.getElementById('btnZoom').classList.add('hidden');
       if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
       if (videoEl) videoEl.srcObject = null;
       setBtn(false);
@@ -1868,6 +1991,7 @@
 
     // ===== Gerbang tanggal: hanya ditanya kalau di spreadsheet TIDAK ADA No Faktur berlatar merah =====
     let scanGateOk = false, gateBusy = false;
+    const GATE_DAY_KEY = 'stockScan_gateDay';
     function fakturYmd(nf) {
       const m = String(nf || '').match(/^\d{5}(\d{2})(\d{2})(\d{2})/);
       if (!m) return 0;
@@ -1878,24 +2002,31 @@
       const d = new Date(), p = n => String(n).padStart(2, '0');
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
     }
+    function gateDoneToday() { try { return localStorage.getItem(GATE_DAY_KEY) === todayStr(); } catch (e) { return false; } }
+    function markGateToday() { try { localStorage.setItem(GATE_DAY_KEY, todayStr()); } catch (e) {} }
     async function gateThenScan() {
       if (gateBusy) return;
       gateBusy = true;
       try {
-        toast('Memeriksa spreadsheet...', '');
         while (window.__loading) await sleep(200);
+        toast('Memeriksa spreadsheet...', '');
         await loadData(true);   // data terbaru, supaya keputusan "ada merah / tidak" akurat
         if (!items.length) { toast('Data belum termuat. Cek koneksi lalu coba lagi', 'error'); return; }
-        if (items.some(i => i.wajibAsli)) { scanGateOk = true; showPage('scan'); }   // sudah ada merah: tidak perlu tanya
+        const red = items.filter(i => i.wajibAsli).length;
+        if (red > 0 || gateDoneToday()) { scanGateOk = true; showPage('scan'); }   // sudah ada merah / hari ini sudah diatur
         else openDateGate();
       } finally { gateBusy = false; }
     }
     function openDateGate() {
       document.getElementById('turunDate').value = todayStr();   // default: hari ini
+      document.getElementById('gateInfo').innerHTML = 'Terbaca <b>0</b> dari ' + items.length + ' No Faktur berlatar merah.';
       document.getElementById('dateModal').classList.remove('hidden');
       updateDatePreview();
     }
     function closeDateGate() { document.getElementById('dateModal').classList.add('hidden'); }
+    function skipGate() {   // spreadsheet sebenarnya sudah ditandai: lanjut scan, tidak ditanya lagi hari ini
+      markGateToday(); scanGateOk = true; closeDateGate(); showPage('scan');
+    }
     function updateDatePreview() {
       const el = document.getElementById('datePreview');
       if (!el) return;
@@ -1917,6 +2048,7 @@
         if (!r.ok) throw new Error(r.error || 'gagal');
         if (!r.red) { toast('Tidak ada barang pada / setelah tanggal itu. Pilih tanggal lain', 'warning'); return; }
         try { localStorage.setItem('stockScan_turunDate', v); } catch (e) {}
+        markGateToday();
         toast(r.red + ' barang ditandai merah', 'success');
         scanGateOk = true;
         closeDateGate();
