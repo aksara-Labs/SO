@@ -606,9 +606,18 @@
         ${data.noPolisi ? 'Polisi: ' + esc(data.noPolisi) : ''}
       `;
       document.getElementById('alertOverlay').classList.add('show');
+
+      // Suara + getar lebih kuat
       speak('Wajib turun');
-      setTimeout(() => alarmBeep(), 400);
-      try { navigator.vibrate && navigator.vibrate([200, 100, 200, 100, 400]); } catch(e){}
+      alarmBeep();
+      setTimeout(() => alarmBeep(), 800);
+      setTimeout(() => speak('Wajib turun'), 900);
+
+      try {
+        if (navigator.vibrate) {
+          navigator.vibrate([300, 100, 300, 100, 500, 100, 300]);
+        }
+      } catch(e){}
     }
 
     function closeAlert() {
@@ -621,8 +630,9 @@
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'id-ID';
-        u.rate = 0.9;
-        u.pitch = 1.1;
+        u.rate = 0.85;
+        u.pitch = 1.15;
+        u.volume = 1.0;
         window.speechSynthesis.speak(u);
       } catch (e) {}
     }
@@ -635,9 +645,9 @@
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.frequency.value = success ? 880 : 300;
-        gain.gain.value = 0.15;
+        gain.gain.value = 0.2;
         osc.start();
-        setTimeout(() => { osc.stop(); ctx.close(); }, success ? 120 : 250);
+        setTimeout(() => { osc.stop(); ctx.close(); }, success ? 130 : 280);
       } catch (e) {}
     }
 
@@ -645,20 +655,21 @@
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         let t = ctx.currentTime;
-        for (let i = 0; i < 4; i++) {
+        // Bunyi alarm lebih panjang & keras
+        for (let i = 0; i < 6; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.type = 'square';
-          osc.frequency.value = i % 2 === 0 ? 740 : 520;
-          gain.gain.setValueAtTime(0.18, t);
-          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+          osc.frequency.value = i % 2 === 0 ? 880 : 620;
+          gain.gain.setValueAtTime(0.25, t);
+          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
           osc.start(t);
-          osc.stop(t + 0.2);
-          t += 0.22;
+          osc.stop(t + 0.22);
+          t += 0.25;
         }
-        setTimeout(() => ctx.close(), 1200);
+        setTimeout(() => ctx.close(), 2000);
       } catch (e) {}
     }
 
@@ -694,10 +705,15 @@
         html5QrCode = new Html5Qrcode('reader');
         await html5QrCode.start(
           { facingMode: 'environment' },
-          { fps: 8, qrbox: { width: 280, height: 120 } },
+          { 
+            fps: 10, 
+            qrbox: { width: 280, height: 140 },
+            aspectRatio: 1.777
+          },
           (decoded) => {
             const now = Date.now();
-            if (decoded === lastScanned && now - lastScanTime < 2800) return;
+            // Debounce lebih pendek biar bisa scan cepat bergantian
+            if (decoded === lastScanned && now - lastScanTime < 1600) return;
             lastScanned = decoded;
             lastScanTime = now;
             doScan(decoded);
