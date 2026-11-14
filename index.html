@@ -140,6 +140,18 @@
     .cek-card .cek-nf { padding: 0 11px 10px; font-family: ui-monospace, Menlo, monospace; font-size: .76rem; line-height: 1.7; word-break: break-word; max-height: 30vh; overflow-y: auto; }
     .cek-card .cek-note { font-size: .72rem; color: #92400e; margin-top: 8px; }
     .nav-badge { position: absolute; top: 2px; left: 55%; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: .62rem; font-weight: 800; line-height: 17px; }
+    .gear { display: none; position: absolute; top: 14px; right: 14px; border: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; font-size: 1.05rem; cursor: pointer; }
+    .live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #34d399; margin-right: 5px; animation: pulse 1.6s infinite; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    /* HP = alat scan saja */
+    .view-scanner .nav { display: none; }
+    .view-scanner { padding-bottom: 20px; }
+    .view-scanner .gear { display: block; }
+    /* Laptop = tampilan / monitoring (tanpa kamera) */
+    .view-display .nav-item[data-page="scan"] { display: none; }
+    .view-display .container { max-width: 980px; }
+    .view-display .item-list { max-height: 68vh; }
+    .view-display .nav { justify-content: center; } .view-display .nav-item { max-width: 160px; }
     .rakwarn { margin-top: 10px; padding: 9px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 800; font-size: .85rem; }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: .88rem; font-weight: 600; z-index: 300; opacity: 0; transition: all .3s; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -170,6 +182,7 @@
   <div class="header">
     <h1><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg>Stock Scan</h1>
     <div class="sub" id="headerSub">Hubungkan ke backend dulu</div>
+    <button class="gear" id="btnGear" onclick="toggleSettings()" title="Pengaturan">⚙</button>
   </div>
 
   <div class="container">
@@ -352,6 +365,30 @@
     // Sentuhan pertama: aktifkan suara (browser blok audio sebelum ada sentuhan)
     document.addEventListener('pointerdown', () => { getCtx(); warmSpeech(); }, { once: true });
 
+    // ===== Tampilan: HP = alat scan saja, laptop = tampilan/monitoring (live) =====
+    // Paksa manual: tambahkan ?view=scanner atau ?view=display di URL
+    const VIEW = (() => {
+      const q = new URLSearchParams(location.search).get('view');
+      if (q === 'scanner' || q === 'display') { try { localStorage.setItem('stockScan_view', q); } catch (e) {} return q; }
+      let saved = ''; try { saved = localStorage.getItem('stockScan_view') || ''; } catch (e) {}
+      if (saved === 'scanner' || saved === 'display') return saved;
+      return (window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 900) ? 'scanner' : 'display';
+    })();
+    document.body.classList.add('view-' + VIEW);
+
+    function toggleSettings() {   // khusus HP: gear = buka/tutup pengaturan
+      const onScan = document.getElementById('page-scan').classList.contains('active');
+      showPage(onScan ? 'home' : 'scan');
+    }
+
+    // Laptop: muat ulang diam-diam tiap 8 detik supaya hasil scan dari HP langsung kelihatan
+    if (VIEW === 'display') {
+      setInterval(() => {
+        if (document.hidden || !BACKEND_URL || window.__loading) return;
+        loadData(true);
+      }, 8000);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       initRak();
       restoreQueue();
@@ -359,7 +396,7 @@
       if (BACKEND_URL) {
         document.getElementById('backendUrl').value = BACKEND_URL;
         checkConnection();
-        showPage('scan');   // langsung buka kamera, bukan daftar item
+        showPage(VIEW === 'scanner' ? 'scan' : 'home');   // HP: langsung kamera; laptop: ringkasan
       }
       document.getElementById('manualBarcode').addEventListener('keydown', e => {
         if (e.key === 'Enter') doScan(e.target.value);
@@ -447,17 +484,21 @@
         `<details><summary><span>${esc(g[0])}</span><b>${g[1].length}</b></summary><div class="cek-nf">${g[1].map(esc).join('<br>')}</div></details>`).join('') + missing + '</div>';
     }
 
-    async function loadData() {
+    async function loadData(silent) {
+      if (window.__loading) return;
+      window.__loading = true;
       const btnRefresh = document.getElementById('btnRefresh');
       const originalText = btnRefresh ? btnRefresh.innerHTML : '🔄 Refresh';
 
       try {
-        toast('Sedang memuat data...', '');
-        if (btnRefresh) {
-          btnRefresh.disabled = true;
-          btnRefresh.innerHTML = '⏳ Memuat...';
+        if (!silent) {
+          toast('Sedang memuat data...', '');
+          if (btnRefresh) {
+            btnRefresh.disabled = true;
+            btnRefresh.innerHTML = '⏳ Memuat...';
+          }
+          document.getElementById('headerSub').textContent = 'Memuat data...';
         }
-        document.getElementById('headerSub').textContent = 'Memuat data...';
 
         const data = await api('getall');
         if (!data.ok) throw new Error(data.error || 'Gagal load');
@@ -467,15 +508,21 @@
         reapplyPendingMarks();
         updateStats(data);
         document.getElementById('statsSection').classList.remove('hidden');
-        document.getElementById('headerSub').textContent = items.length + ' barang • Sinkron';
+        document.getElementById('headerSub').innerHTML = VIEW === 'display'
+          ? '<span class="live-dot"></span>' + items.length + ' barang • Live ' + new Date().toLocaleTimeString('id-ID')
+          : items.length + ' barang • Sinkron';
         renderList();
         renderCekData(data.headers);
-        toast('Data berhasil dimuat (' + items.length + ')', 'success');
+        if (document.getElementById('page-scan').classList.contains('active') && scanMode === 'periksa') renderPeriksaList();
+        if (!silent) toast('Data berhasil dimuat (' + items.length + ')', 'success');
       } catch (e) {
-        toast('Gagal load data: ' + e.message, 'error');
-        document.getElementById('headerSub').textContent = 'Gagal memuat data';
+        if (!silent) {
+          toast('Gagal load data: ' + e.message, 'error');
+          document.getElementById('headerSub').textContent = 'Gagal memuat data';
+        }
       } finally {
-        if (btnRefresh) {
+        window.__loading = false;
+        if (btnRefresh && !silent) {
           btnRefresh.disabled = false;
           btnRefresh.innerHTML = originalText;
         }
@@ -544,7 +591,7 @@
           <div class="pc-top"><span class="pc-lbl">Barang terbaca</span>${tag}</div>
           <div class="pc-name">${esc(name)}</div>
           <div class="pc-meta">NF <b>${esc(it.noFaktur)}</b>${it.imei ? ' · IMEI ' + esc(it.imei) : ''}</div>
-          ${(it.noModel || it.spek) ? `<div class="pc-spec">${it.noModel ? `<div><span>No Model</span><b>${esc(it.noModel)}</b></div>` : ''}${it.spek ? `<div><span>Spesifikasi</span><b>${esc(it.spek)}</b></div>` : ''}</div>` : ''}
+          ${(it.noModel || it.spek || it.kelengkapan) ? `<div class="pc-spec">${it.noModel ? `<div><span>No Model</span><b>${esc(it.noModel)}</b></div>` : ''}${it.spek ? `<div><span>Spesifikasi</span><b>${esc(it.spek)}</b></div>` : ''}${it.kelengkapan ? `<div><span>Kelengkapan</span><b>${esc(it.kelengkapan)}</b></div>` : ''}</div>` : ''}
           ${prev}
           <div class="chk-actions" id="periksaActions">
             <button class="btn btn-success" onclick="periksaOk()">✅ Sesuai</button>
@@ -1322,7 +1369,7 @@
           <div class="item ${kc} ${i.mark === 1 ? 'marked' : ''} ${i.wajibTurun ? 'wajib' : ''}">
             <div class="check">${i.mark === 1 ? '✓' : ''}</div>
             <div class="info">
-              <div class="top"><span class="tag">${esc(i.kode || '-')}</span><span class="nf">${esc(i.noFaktur)}</span>${i.rakItem && i.rak ? '<span class="rak-chip">Rak ' + i.rak + '</span>' : ''}${i.wajibTurun ? '<span class="badge-turun">TURUN</span>' : ''}</div>
+              <div class="top"><span class="tag">${esc(i.kode || '-')}</span><span class="nf">${esc(i.noFaktur)}</span>${i.rakItem && i.rak ? '<span class="rak-chip">Rak ' + i.rak + '</span>' : ''}${i.wajibTurun ? (i.periksa ? `<span class="pstat ${i.periksa === 'ok' ? 'ok' : 'bad'}" style="margin-left:auto">${i.periksa === 'ok' ? 'SESUAI' : 'TIDAK SESUAI'}</span>` : '<span class="badge-turun">TURUN</span>') : ''}</div>
               <div class="name">${esc(name)}</div>
               <div class="meta">${i.imei ? 'IMEI: ' + esc(i.imei) : (i.noPolisi ? 'Polisi: ' + esc(i.noPolisi) : '')}</div>
             </div>
