@@ -374,7 +374,7 @@
         <div class="card">
           <button class="btn btn-success btn-block" onclick="showPage('scan')">📷 Mulai Scan</button>
           <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="btn btn-outline btn-sm" onclick="loadData()">🔄 Refresh</button>
+            <button class="btn btn-outline btn-sm" id="btnRefresh" onclick="loadData()">🔄 Refresh</button>
             <button class="btn btn-outline btn-sm" onclick="resetMarks()">Reset Mark</button>
           </div>
         </div>
@@ -488,10 +488,20 @@
     }
 
     async function loadData() {
+      const btnRefresh = document.getElementById('btnRefresh');
+      const originalText = btnRefresh ? btnRefresh.innerHTML : '🔄 Refresh';
+
       try {
-        toast('Memuat data...', '');
+        toast('Sedang memuat data...', '');
+        if (btnRefresh) {
+          btnRefresh.disabled = true;
+          btnRefresh.innerHTML = '⏳ Memuat...';
+        }
+        document.getElementById('headerSub').textContent = 'Memuat data...';
+
         const data = await api('getall');
         if (!data.ok) throw new Error(data.error || 'Gagal load');
+
         items = data.items || [];
         updateStats(data);
         document.getElementById('statsSection').classList.remove('hidden');
@@ -500,6 +510,12 @@
         toast('Data berhasil dimuat (' + items.length + ')', 'success');
       } catch (e) {
         toast('Gagal load data: ' + e.message, 'error');
+        document.getElementById('headerSub').textContent = 'Gagal memuat data';
+      } finally {
+        if (btnRefresh) {
+          btnRefresh.disabled = false;
+          btnRefresh.innerHTML = originalText;
+        }
       }
     }
 
@@ -510,8 +526,16 @@
       document.getElementById('statTurun').textContent = data.wajibTurunCount || items.filter(i => i.wajibTurun).length;
     }
 
+    // Bersihkan hasil scan (hapus bintang * dan karakter non-digit)
+    function cleanBarcode(code) {
+      return String(code || '')
+        .trim()
+        .replace(/\*/g, '')          // hapus bintang Code 39
+        .replace(/[^0-9A-Za-z]/g, ''); // sisakan huruf & angka saja
+    }
+
     async function doScan(code) {
-      code = String(code || '').trim();
+      code = cleanBarcode(code);
       if (!code) return;
 
       document.getElementById('manualBarcode').value = code;
@@ -648,8 +672,25 @@
         toast('Isi URL backend dulu di Home', 'error');
         return;
       }
+
       const btn = document.getElementById('btnStartScan');
+      btn.disabled = true;
+      btn.textContent = 'Membuka kamera...';
+
       try {
+        // Bersihkan instance lama kalau masih ada
+        if (html5QrCode) {
+          try {
+            if (isScanning) await html5QrCode.stop();
+            html5QrCode.clear();
+          } catch (e) {}
+          html5QrCode = null;
+        }
+
+        // Kosongkan elemen reader biar bersih
+        const readerEl = document.getElementById('reader');
+        readerEl.innerHTML = '';
+
         html5QrCode = new Html5Qrcode('reader');
         await html5QrCode.start(
           { facingMode: 'environment' },
@@ -663,22 +704,45 @@
           },
           () => {}
         );
+
         isScanning = true;
+        btn.disabled = false;
         btn.textContent = '⏹ Stop Kamera';
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-danger');
       } catch (err) {
+        isScanning = false;
+        btn.disabled = false;
+        btn.textContent = 'Mulai Kamera';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-primary');
         toast('Gagal buka kamera: ' + (err.message || err), 'error');
       }
     }
 
-    function stopScan() {
-      if (html5QrCode && isScanning) {
-        html5QrCode.stop().catch(() => {});
-        html5QrCode.clear();
-      }
-      isScanning = false;
+    async function stopScan() {
       const btn = document.getElementById('btnStartScan');
+      btn.disabled = true;
+      btn.textContent = 'Menutup kamera...';
+
+      try {
+        if (html5QrCode) {
+          if (isScanning) {
+            await html5QrCode.stop();
+          }
+          html5QrCode.clear();
+          html5QrCode = null;
+        }
+      } catch (e) {
+        // ignore error saat stop
+      }
+
+      // Pastikan elemen reader bersih
+      const readerEl = document.getElementById('reader');
+      if (readerEl) readerEl.innerHTML = '';
+
+      isScanning = false;
+      btn.disabled = false;
       btn.textContent = 'Mulai Kamera';
       btn.classList.remove('btn-danger');
       btn.classList.add('btn-primary');
