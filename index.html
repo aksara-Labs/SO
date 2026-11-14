@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Stock Scan - No Faktur</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .header h1 { font-size: 1.15rem; font-weight: 600; }
+    .header .sub { font-size: 0.75rem; opacity: 0.85; margin-top: 2px; }
+
+    .container { max-width: 640px; margin: 0 auto; padding: 12px; }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .stat {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 10px 4px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .stat .num { font-size: 1.25rem; font-weight: 700; }
+    .stat .label { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+    .stat.total .num { color: var(--primary); }
+    .stat.marked .num { color: var(--success); }
+    .stat.unmarked .num { color: var(--warning); }
+    .stat.turun .num { color: var(--danger); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 11px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-outline {
+      background: white;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-block { width: 100%; }
+    .btn-sm { padding: 7px 12px; font-size: 0.8rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #reader {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      background: #000;
+    }
+
+    .manual-input {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .manual-input input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+    }
+    .manual-input input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+      outline: none;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .filter-tab {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      border: 1px solid var(--border);
+      background: white;
+      cursor: pointer;
+    }
+    .filter-tab.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    .filter-tab.danger.active {
+      background: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .item-list { max-height: 55vh; overflow-y: auto; }
+    .item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px;
+      border-bottom: 1px solid var(--border);
+    }
+    .item:last-child { border-bottom: none; }
+    .item.marked { background: #f0fdf4; }
+    .item.wajib { background: #fef2f2; border-left: 3px solid var(--danger); }
+    .item .check {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .item.marked .check {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+    .item .info { flex: 1; min-width: 0; }
+    .item .name { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item .meta { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .item .nf { font-family: monospace; font-size: 0.8rem; color: var(--primary); margin-top: 2px; }
+    .item .badge-turun {
+      display: inline-block;
+      background: var(--danger);
+      color: white;
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      font-weight: 700;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #0f172a;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      z-index: 300;
+      opacity: 0;
+      transition: all 0.3s;
+      max-width: 90%;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    .toast.warning { background: var(--warning); }
+
+    .alert-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .alert-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .alert-box {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 20px;
+      text-align: center;
+      max-width: 340px;
+      width: 100%;
+      animation: pop 0.3s ease;
+      border: 4px solid var(--danger);
+    }
+    @keyframes pop {
+      0% { transform: scale(0.7); }
+      100% { transform: scale(1); }
+    }
+    .alert-box .icon { font-size: 3.5rem; margin-bottom: 8px; }
+    .alert-box .title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--danger);
+      margin-bottom: 6px;
+    }
+    .alert-box .desc { font-size: 0.95rem; color: var(--text); margin-bottom: 16px; }
+    .alert-box .detail {
+      background: #fef2f2;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+    }
+    .nav-item {
+      flex: 1;
+      padding: 10px 4px;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+    .nav-item.active { color: var(--primary); font-weight: 600; }
+    .nav-item .icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+
+    .hidden { display: none !important; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .result-box {
+      padding: 14px;
+      border-radius: 10px;
+      margin-top: 12px;
+      text-align: center;
+    }
+    .result-box.success { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .result-box.error { background: #fef2f2; border: 1px solid #fecaca; }
+    .result-box.warning { background: #fffbeb; border: 1px solid #fde68a; }
+    .result-box .title { font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+    .result-box .detail { font-size: 0.82rem; color: var(--muted); }
+
+    .config-box {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+    .config-box input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-top: 6px;
+      font-size: 0.85rem;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-dot.ok { background: var(--success); }
+    .status-dot.err { background: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📦 Stock Scan</h1>
+    <div class="sub" id="headerSub">Hubungkan ke backend dulu</div>
+  </div>
+
+  <div class="container">
+    <div id="page-home" class="page active">
+      <div class="config-box" id="configBox">
+        <strong>🔗 URL Backend (Apps Script)</strong>
+        <input type="text" id="backendUrl" placeholder="https://script.google.com/macros/s/XXXX/exec" />
+        <div style="margin-top:8px; display:flex; gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveBackendUrl()">Simpan & Cek</button>
+          <span id="connStatus" style="font-size:0.8rem; align-self:center;"></span>
+        </div>
+      </div>
+
+      <div id="statsSection" class="hidden">
+        <div class="stats">
+          <div class="stat total">
+            <div class="num" id="statTotal">0</div>
+            <div class="label">Total</div>
+          </div>
+          <div class="stat marked">
+            <div class="num" id="statMarked">0</div>
+            <div class="label">Marked</div>
+          </div>
+          <div class="stat unmarked">
+            <div class="num" id="statUnmarked">0</div>
+            <div class="label">Belum</div>
+          </div>
+          <div class="stat turun">
+            <div class="num" id="statTurun">0</div>
+            <div class="label">Wajib Turun</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <button class="btn btn-success btn-block" onclick="showPage('scan')">📷 Mulai Scan</button>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="btn btn-outline btn-sm" onclick="loadData()">🔄 Refresh</button>
+            <button class="btn btn-outline btn-sm" onclick="resetMarks()">Reset Mark</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-scan" class="page">
+      <div class="card">
+        <div id="reader"></div>
+        <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
+        <div class="manual-input">
+          <input type="text" id="manualBarcode" placeholder="Ketik / scan No Faktur..." inputmode="numeric" />
+          <button class="btn btn-primary" onclick="doScan(document.getElementById('manualBarcode').value)">Cari</button>
+        </div>
+        <div id="scanResult"></div>
+      </div>
+    </div>
+
+    <div id="page-list" class="page">
+      <div class="card">
+        <input type="text" class="search-box" id="searchInput" placeholder="Cari No Faktur / nama..." oninput="renderList()" />
+        <div class="filter-tabs">
+          <div class="filter-tab active" data-filter="all" onclick="setFilter('all')">Semua</div>
+          <div class="filter-tab" data-filter="unmarked" onclick="setFilter('unmarked')">Belum</div>
+          <div class="filter-tab" data-filter="marked" onclick="setFilter('marked')">Marked</div>
+          <div class="filter-tab danger" data-filter="turun" onclick="setFilter('turun')">Wajib Turun</div>
+        </div>
+        <div class="item-list" id="itemList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-item active" data-page="home" onclick="showPage('home')">
+      <span class="icon">🏠</span>Home
+    </button>
+    <button class="nav-item" data-page="scan" onclick="showPage('scan')">
+      <span class="icon">📷</span>Scan
+    </button>
+    <button class="nav-item" data-page="list" onclick="showPage('list')">
+      <span class="icon">📋</span>List
+    </button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="alert-overlay" id="alertOverlay">
+    <div class="alert-box">
+      <div class="icon">⬇️</div>
+      <div class="title">WAJIB TURUN!</div>
+      <div class="desc">Barang ini harus segera diturunkan.</div>
+      <div class="detail" id="alertDetail"></div>
+      <button class="btn btn-danger btn-block" onclick="closeAlert()">Mengerti</button>
+    </div>
+  </div>
+
+  <script>
+    let BACKEND_URL = localStorage.getItem('stockScan_backend') || '';
+    let items = [];
+    let currentFilter = 'all';
+    let html5QrCode = null;
+    let isScanning = false;
+    let lastScanned = '';
+    let lastScanTime = 0;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (BACKEND_URL) {
+        document.getElementById('backendUrl').value = BACKEND_URL;
+        checkConnection();
+      }
+      document.getElementById('manualBarcode').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doScan(e.target.value);
+      });
+    });
+
+    function saveBackendUrl() {
+      const url = document.getElementById('backendUrl').value.trim();
+      if (!url) {
+        toast('URL masih kosong', 'error');
+        return;
+      }
+      BACKEND_URL = url;
+      localStorage.setItem('stockScan_backend', url);
+      checkConnection();
+    }
+
+    async function api(action, params = {}) {
+      if (!BACKEND_URL) throw new Error('Backend URL belum diisi');
+      const qs = new URLSearchParams({ action, ...params }).toString();
+      const res = await fetch(BACKEND_URL + '?' + qs, { method: 'GET' });
+      if (!res.ok) throw new Error('Network error ' + res.status);
+      return res.json();
+    }
+
+    async function checkConnection() {
+      const status = document.getElementById('connStatus');
+      status.innerHTML = '<span class="status-dot"></span>Mengecek...';
+      try {
+        const data = await api('ping');
+        if (data.ok) {
+          status.innerHTML = '<span class="status-dot ok"></span>Terhubung';
+          document.getElementById('headerSub').textContent = 'Backend siap';
+          loadData();
+        } else {
+          status.innerHTML = '<span class="status-dot err"></span>Gagal';
+        }
+      } catch (e) {
+        status.innerHTML = '<span class="status-dot err"></span>Error';
+        toast('Gagal konek backend: ' + e.message, 'error');
+      }
+    }
+
+    async function loadData() {
+      try {
+        toast('Memuat data...', '');
+        const data = await api('getall');
+        if (!data.ok) throw new Error(data.error || 'Gagal load');
+        items = data.items || [];
+        updateStats(data);
+        document.getElementById('statsSection').classList.remove('hidden');
+        document.getElementById('headerSub').textContent = items.length + ' barang • Sinkron';
+        renderList();
+        toast('Data berhasil dimuat (' + items.length + ')', 'success');
+      } catch (e) {
+        toast('Gagal load data: ' + e.message, 'error');
+      }
+    }
+
+    function updateStats(data) {
+      document.getElementById('statTotal').textContent = data.total || items.length;
+      document.getElementById('statMarked').textContent = data.marked || items.filter(i => i.mark === 1).length;
+      document.getElementById('statUnmarked').textContent = (data.total || items.length) - (data.marked || 0);
+      document.getElementById('statTurun').textContent = data.wajibTurunCount || items.filter(i => i.wajibTurun).length;
+    }
+
+    async function doScan(code) {
+      code = String(code || '').trim();
+      if (!code) return;
+
+      document.getElementById('manualBarcode').value = code;
+      const resultEl = document.getElementById('scanResult');
+      resultEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted)">Mencari...</div>';
+
+      try {
+        const data = await api('scan', { nf: code });
+
+        if (!data.found) {
+          resultEl.innerHTML = `
+            <div class="result-box error">
+              <div class="title">❌ Tidak Ditemukan</div>
+              <div class="detail">No Faktur: <strong>${esc(code)}</strong></div>
+            </div>`;
+          toast('Tidak ditemukan', 'error');
+          beep(false);
+          return;
+        }
+
+        const idx = items.findIndex(i => i.noFaktur === data.noFaktur);
+        if (idx >= 0) items[idx].mark = 1;
+
+        const name = [data.jenis, data.merk, data.tipe].filter(Boolean).join(' • ') || 'Barang';
+
+        if (data.wajibTurun) {
+          showTurunAlert(data);
+          resultEl.innerHTML = `
+            <div class="result-box error">
+              <div class="title">⬇️ WAJIB TURUN!</div>
+              <div class="detail" style="font-weight:600;margin-top:6px">${esc(name)}</div>
+              <div class="detail">NF: ${esc(data.noFaktur)}</div>
+            </div>`;
+        } else {
+          resultEl.innerHTML = `
+            <div class="result-box ${data.alreadyMarked ? 'warning' : 'success'}">
+              <div class="title">${data.alreadyMarked ? '✓ Sudah di-Mark' : '✅ Berhasil di-Mark'}</div>
+              <div class="detail" style="font-weight:600;margin-top:6px">${esc(name)}</div>
+              <div class="detail">NF: ${esc(data.noFaktur)}</div>
+            </div>`;
+          toast(data.alreadyMarked ? 'Sudah ditandai sebelumnya' : 'Mark = 1 ✓', data.alreadyMarked ? 'warning' : 'success');
+          beep(true);
+        }
+
+        updateStats({
+          total: items.length,
+          marked: items.filter(i => i.mark === 1).length,
+          wajibTurunCount: items.filter(i => i.wajibTurun).length
+        });
+
+        setTimeout(() => {
+          document.getElementById('manualBarcode').value = '';
+          document.getElementById('manualBarcode').focus();
+        }, 600);
+
+      } catch (e) {
+        resultEl.innerHTML = `<div class="result-box error"><div class="title">Error</div><div class="detail">${esc(e.message)}</div></div>`;
+        toast(e.message, 'error');
+      }
+    }
+
+    function showTurunAlert(data) {
+      const name = [data.jenis, data.merk, data.tipe].filter(Boolean).join(' • ') || '-';
+      document.getElementById('alertDetail').innerHTML = `
+        <strong>${esc(name)}</strong><br>
+        No Faktur: <code>${esc(data.noFaktur)}</code><br>
+        ${data.imei ? 'IMEI: ' + esc(data.imei) : ''}
+        ${data.noPolisi ? 'Polisi: ' + esc(data.noPolisi) : ''}
+      `;
+      document.getElementById('alertOverlay').classList.add('show');
+      speak('Wajib turun');
+      setTimeout(() => alarmBeep(), 400);
+      try { navigator.vibrate && navigator.vibrate([200, 100, 200, 100, 400]); } catch(e){}
+    }
+
+    function closeAlert() {
+      document.getElementById('alertOverlay').classList.remove('show');
+    }
+
+    function speak(text) {
+      try {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'id-ID';
+        u.rate = 0.9;
+        u.pitch = 1.1;
+        window.speechSynthesis.speak(u);
+      } catch (e) {}
+    }
+
+    function beep(success) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = success ? 880 : 300;
+        gain.gain.value = 0.15;
+        osc.start();
+        setTimeout(() => { osc.stop(); ctx.close(); }, success ? 120 : 250);
+      } catch (e) {}
+    }
+
+    function alarmBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        let t = ctx.currentTime;
+        for (let i = 0; i < 4; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'square';
+          osc.frequency.value = i % 2 === 0 ? 740 : 520;
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+          osc.start(t);
+          osc.stop(t + 0.2);
+          t += 0.22;
+        }
+        setTimeout(() => ctx.close(), 1200);
+      } catch (e) {}
+    }
+
+    async function toggleScan() {
+      if (isScanning) stopScan();
+      else startScan();
+    }
+
+    async function startScan() {
+      if (!BACKEND_URL) {
+        toast('Isi URL backend dulu di Home', 'error');
+        return;
+      }
+      const btn = document.getElementById('btnStartScan');
+      try {
+        html5QrCode = new Html5Qrcode('reader');
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 8, qrbox: { width: 280, height: 120 } },
+          (decoded) => {
+            const now = Date.now();
+            if (decoded === lastScanned && now - lastScanTime < 2800) return;
+            lastScanned = decoded;
+            lastScanTime = now;
+            doScan(decoded);
+          },
+          () => {}
+        );
+        isScanning = true;
+        btn.textContent = '⏹ Stop Kamera';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-danger');
+      } catch (err) {
+        toast('Gagal buka kamera: ' + (err.message || err), 'error');
+      }
+    }
+
+    function stopScan() {
+      if (html5QrCode && isScanning) {
+        html5QrCode.stop().catch(() => {});
+        html5QrCode.clear();
+      }
+      isScanning = false;
+      const btn = document.getElementById('btnStartScan');
+      btn.textContent = 'Mulai Kamera';
+      btn.classList.remove('btn-danger');
+      btn.classList.add('btn-primary');
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.filter === f);
+      });
+      renderList();
+    }
+
+    function renderList() {
+      const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+      let list = items;
+
+      if (currentFilter === 'marked') list = list.filter(i => i.mark === 1);
+      if (currentFilter === 'unmarked') list = list.filter(i => i.mark !== 1);
+      if (currentFilter === 'turun') list = list.filter(i => i.wajibTurun);
+
+      if (q) {
+        list = list.filter(i => {
+          const s = [i.noFaktur, i.jenis, i.merk, i.tipe, i.imei, i.noPolisi].join(' ').toLowerCase();
+          return s.includes(q);
+        });
+      }
+
+      const el = document.getElementById('itemList');
+      if (list.length === 0) {
+        el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">Tidak ada data</div>';
+        return;
+      }
+
+      el.innerHTML = list.slice(0, 250).map(i => {
+        const name = [i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || 'Tanpa Nama';
+        return `
+          <div class="item ${i.mark === 1 ? 'marked' : ''} ${i.wajibTurun ? 'wajib' : ''}">
+            <div class="check">${i.mark === 1 ? '✓' : ''}</div>
+            <div class="info">
+              <div class="name">${esc(name)}${i.wajibTurun ? '<span class="badge-turun">TURUN</span>' : ''}</div>
+              <div class="nf">${esc(i.noFaktur)}</div>
+              <div class="meta">${i.imei ? 'IMEI: ' + esc(i.imei) : (i.noPolisi ? 'Polisi: ' + esc(i.noPolisi) : '')}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function resetMarks() {
+      if (!confirm('Reset SEMUA Mark jadi kosong?')) return;
+      try {
+        const data = await api('reset');
+        if (data.ok) {
+          items.forEach(i => i.mark = 0);
+          updateStats({ total: items.length, marked: 0, wajibTurunCount: items.filter(i => i.wajibTurun).length });
+          renderList();
+          toast('Semua Mark di-reset', 'success');
+        }
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    }
+
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + page).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => {
+        n.classList.toggle('active', n.dataset.page === page);
+      });
+      if (page !== 'scan' && isScanning) stopScan();
+      if (page === 'list') renderList();
+    }
+
+    function esc(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function toast(msg, type = '') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast show ' + type;
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+  </script>
+</body>
+</html>
