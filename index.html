@@ -102,6 +102,31 @@
     .pstat.ok { background: #d1fae5; color: #065f46; } .pstat.bad { background: #ffe4e6; color: #be123c; }
     #periksaBox { margin-top: 12px; } #periksaBox .item { cursor: pointer; }
     .log-row.bad { background: #fff1f2; } .log-row.bad span { color: var(--danger); font-weight: 700; }
+    /* ---- Mode pemeriksaan (ringkas) ---- */
+    .pmode #rakBar, .pmode #btnStartScan, .pmode #scanLog { display: none !important; }
+    .pcard-on #camWrap, .pcard-on #manualWrap { display: none !important; }
+    .phead { display: none; margin-bottom: 12px; }
+    .pmode .phead { display: block; }
+    .phead .ph-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .phead .ph-top b { font-size: .9rem; } .phead .ph-top span { font-size: .78rem; font-weight: 800; color: var(--muted); }
+    .phead .bar i { background: var(--success); }
+    .pcard { border: 1px solid #fde68a; background: #fffbeb; border-radius: 16px; padding: 14px; margin-top: 2px; }
+    .pcard .pc-lbl { font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #92400e; }
+    .pcard .pc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .pcard .pc-name { font-size: 1rem; font-weight: 800; line-height: 1.3; }
+    .pcard .pc-meta { font-size: .78rem; color: var(--muted); margin-top: 4px; word-break: break-all; }
+    .pcard .pc-meta b { color: var(--text); font-family: ui-monospace, Menlo, monospace; }
+    .pcard .pc-prev { font-size: .74rem; margin-top: 8px; padding: 6px 9px; border-radius: 8px; background: #fff; color: var(--muted); }
+    .pcard .chk-actions .btn { padding: 15px 10px; font-size: .95rem; }
+    .pcard .pc-skip { display: block; width: 100%; margin-top: 8px; padding: 10px; border: none; background: none; color: var(--muted); font-size: .8rem; font-weight: 700; font-family: inherit; cursor: pointer; }
+    .pdone { border: 1px solid #a7f3d0; background: #ecfdf5; border-radius: 16px; padding: 18px 14px; text-align: center; }
+    .pdone .t { font-weight: 800; font-size: 1.05rem; color: var(--success); } .pdone .d { font-size: .82rem; color: var(--muted); margin: 6px 0 14px; }
+    details.plist { margin-top: 12px; border: 1px solid var(--border); border-radius: 14px; background: #f8fafc; }
+    details.plist > summary { list-style: none; cursor: pointer; padding: 11px 14px; font-size: .82rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+    details.plist > summary::-webkit-details-marker { display: none; }
+    details.plist > summary::after { content: '▾'; color: var(--muted); transition: transform .2s; }
+    details.plist[open] > summary::after { transform: rotate(180deg); }
+    details.plist .plist-body { padding: 0 10px 8px; max-height: 45vh; overflow-y: auto; }
     .rakwarn { margin-top: 10px; padding: 9px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 800; font-size: .85rem; }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: .88rem; font-weight: 600; z-index: 300; opacity: 0; transition: all .3s; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -178,8 +203,9 @@
     </div>
 
     <div id="page-scan" class="page">
-      <div class="card">
+      <div class="card" id="scanCard">
         <div class="seg"><button id="segScan" class="on" onclick="setMode('scan')">Scan</button><button id="segPeriksa" onclick="setMode('periksa')">Periksa Barang Turun</button></div>
+        <div class="phead" id="periksaHead"><div class="ph-top"><b>Pemeriksaan barang turun</b><span id="phCount">0/0</span></div><div class="bar"><i id="phBar" style="width:0%"></i></div></div>
         <div class="done-banner hidden" id="doneBanner"><span>Semua barang sudah di-scan ✅</span><button class="btn btn-success btn-sm" onclick="setMode('periksa')">Mulai Pemeriksaan</button></div>
         <div class="rak-bar" id="rakBar">
           <div><div class="rak-title">Mode Rak <small>GE selain TV</small></div><div class="rak-info" id="rakInfo"></div></div>
@@ -188,7 +214,7 @@
         <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()">🔦</button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
-        <div class="manual-input">
+        <div class="manual-input" id="manualWrap">
           <input type="text" id="manualBarcode" placeholder="Ketik / scan No Faktur..." inputmode="numeric" />
           <button class="btn btn-primary" onclick="doScan(document.getElementById('manualBarcode').value)">Cari</button>
         </div>
@@ -389,19 +415,46 @@
     }
 
     // ===== PEMERIKSAAN barang wajib turun: scan ulang -> Sesuai (Ket: OK) / Tidak sesuai (isi keterangan) =====
-    let scanMode = 'scan', pendingPeriksa = null, promptedAll = false;
+    let scanMode = 'scan', pendingPeriksa = null, promptedAll = false, periksaHold = false;
+
+    const turunList = () => items.filter(i => i.wajibTurun);
+    const allPeriksaDone = () => { const l = turunList(); return l.length > 0 && l.every(i => i.periksa); };
 
     function setMode(m) {
       scanMode = m;
-      pendingPeriksa = null;
+      pendingPeriksa = null; periksaHold = false;
+      const card = document.getElementById('scanCard');
+      card.classList.toggle('pmode', m === 'periksa');
+      card.classList.remove('pcard-on');
       document.getElementById('segScan').classList.toggle('on', m === 'scan');
       document.getElementById('segPeriksa').classList.toggle('on', m === 'periksa');
       document.getElementById('rakBar').classList.toggle('hidden', m === 'periksa');
       document.getElementById('periksaBox').classList.toggle('hidden', m !== 'periksa');
       document.getElementById('doneBanner').classList.add('hidden');
       document.getElementById('scanResult').innerHTML = '';
-      if (m === 'periksa') renderPeriksaList();
-      setCamStatus(m === 'periksa' ? 'Scan ulang barang yang turun' : IDLE_OK, '');
+      if (m === 'periksa') {
+        renderPeriksaList();
+        if (allPeriksaDone()) { holdCamera(); showPeriksaDone(); }
+        else if (!isScanning) { window.__camRetried = false; startScan(); }   // kamera langsung terbuka
+      } else {
+        if (isScanning) setCamStatus(IDLE_OK, ''); else { window.__camRetried = false; startScan(); }
+      }
+    }
+
+    // kamera (+ flash) dimatikan selama hasil pemeriksaan ditampilkan
+    function holdCamera() {
+      periksaHold = true;
+      stopScan();
+      document.getElementById('scanCard').classList.add('pcard-on');
+    }
+    // kamera dibuka lagi untuk pemindaian berikutnya
+    function resumeScan() {
+      periksaHold = false; pendingPeriksa = null;
+      document.getElementById('scanResult').innerHTML = '';
+      document.getElementById('scanCard').classList.remove('pcard-on');
+      lastScanTime = Date.now() + 1500;   // jeda singkat supaya barcode yang sama tidak langsung terbaca lagi
+      window.__camRetried = false;
+      startScan();
     }
 
     function checkAllDone() {
@@ -416,46 +469,56 @@
     function showPeriksaCard(it) {
       pendingPeriksa = it;
       const name = [it.jenis, it.merk, it.tipe].filter(Boolean).join(' • ') || 'Barang';
-      const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span> ` : '';
+      const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span>` : '';
+      const prev = it.periksa ? `<div class="pc-prev">Hasil sebelumnya: <b>${it.periksa === 'ok' ? 'Sesuai' : 'Tidak sesuai' + (it.periksaTxt ? ' — ' + esc(it.periksaTxt) : '')}</b></div>` : '';
       document.getElementById('scanResult').innerHTML = `
-        <div class="result-box warning">
-          <div class="title">Pemeriksaan Barang Turun</div>
-          <div class="detail" style="font-weight:700;color:var(--text);margin-top:6px">${esc(name)}</div>
-          <div class="detail">${tag}NF: <b>${esc(it.noFaktur)}</b></div>
-          ${it.imei ? `<div class="detail">IMEI: ${esc(it.imei)}</div>` : ''}
-          <div class="chk-actions">
+        <div class="pcard">
+          <div class="pc-top"><span class="pc-lbl">Barang terbaca</span>${tag}</div>
+          <div class="pc-name">${esc(name)}</div>
+          <div class="pc-meta">NF <b>${esc(it.noFaktur)}</b>${it.imei ? ' · IMEI ' + esc(it.imei) : ''}</div>
+          ${prev}
+          <div class="chk-actions" id="periksaActions">
             <button class="btn btn-success" onclick="periksaOk()">✅ Sesuai</button>
             <button class="btn btn-danger" onclick="periksaTidak()">❌ Tidak Sesuai</button>
           </div>
           <div id="periksaForm" class="hidden">
-            <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." />
-            <button class="btn btn-primary btn-block" onclick="periksaSave()">Simpan Keterangan</button>
+            <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." onkeydown="if(event.key==='Enter')periksaSave()" />
+            <button class="btn btn-danger btn-block" onclick="periksaSave()">Simpan Tidak Sesuai</button>
           </div>
+          <button class="pc-skip" onclick="resumeScan()">Batal, scan barang lain</button>
+        </div>`;
+    }
+
+    function showPeriksaDone() {
+      const l = turunList(), bad = l.filter(i => i.periksa === 'tidak').length;
+      document.getElementById('scanResult').innerHTML = `
+        <div class="pdone">
+          <div class="t">✅ Semua barang turun sudah diperiksa</div>
+          <div class="d">${l.length - bad} sesuai · ${bad} tidak sesuai</div>
+          <button class="btn btn-outline btn-sm" onclick="resumeScan()">Scan ulang / periksa lagi</button>
         </div>`;
     }
 
     function doPeriksa(code) {
-      const resultEl = document.getElementById('scanResult');
-      if (pendingPeriksa) { toast('Selesaikan pemeriksaan sebelumnya dulu', 'warning'); return; }
+      if (pendingPeriksa) return;
       const it = itemIndex.get(code.toUpperCase());
       if (!it) {
         signalScan('nf'); addLog(code, 'nf', 'tidak ada di data');
-        resultEl.innerHTML = `<div class="result-box error"><div class="title">❌ Tidak Ditemukan</div><div class="detail">No Faktur: <strong>${esc(code)}</strong></div></div>`;
-        return;
+        return;   // kamera tetap menyala, status tampil di layar kamera
       }
       if (!it.wajibTurun) {
-        beep(false); setCamStatus('Bukan barang wajib turun', 'warn', 1500); addLog(code, 'dup', 'bukan barang turun');
-        resultEl.innerHTML = `<div class="result-box warning"><div class="title">Bukan barang wajib turun</div><div class="detail">NF: <b>${esc(it.noFaktur)}</b></div></div>`;
+        beep(false); setCamStatus('Bukan barang wajib turun · ' + it.noFaktur, 'warn', 2200); addLog(code, 'dup', 'bukan barang turun');
         return;
       }
-      beepScan(1); flash('#d97706', 250);
+      beepScan(1);
+      holdCamera();          // kode berhasil dipindai -> kamera & flash mati
       showPeriksaCard(it);
     }
 
     function openPeriksa(nf) {   // ketuk dari daftar (kalau barcode tidak terbaca)
       const it = itemIndex.get(cleanBarcode(nf).toUpperCase());
       if (!it) return;
-      if (pendingPeriksa) { toast('Selesaikan pemeriksaan sebelumnya dulu', 'warning'); return; }
+      holdCamera();
       showPeriksaCard(it);
       document.getElementById('scanResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -465,6 +528,7 @@
       if (it) finishPeriksa(it, 'ok', '');
     }
     function periksaTidak() {
+      document.getElementById('periksaActions').classList.add('hidden');
       document.getElementById('periksaForm').classList.remove('hidden');
       document.getElementById('periksaTxt').focus();
     }
@@ -481,23 +545,22 @@
       queueKet(it.noFaktur, state === 'ok' ? 'OK' : 'Tidak sesuai: ' + text, 'periksa');
       beepScan(1);
       addLog(it.noFaktur, state === 'ok' ? 'ok' : 'bad', state === 'ok' ? 'periksa OK' : 'tidak sesuai');
-      document.getElementById('scanResult').innerHTML = `
-        <div class="result-box ${state === 'ok' ? 'success' : 'error'}">
-          <div class="title">${state === 'ok' ? '✅ Sesuai — Ket: OK' : '❌ Tidak sesuai tersimpan'}</div>
-          <div class="detail">NF: <b>${esc(it.noFaktur)}</b></div>
-          ${text ? `<div class="detail">${esc(text)}</div>` : ''}
-        </div>`;
       renderPeriksaList();
-      setCamStatus(state === 'ok' ? '✅ OK tersimpan' : 'Keterangan tersimpan', state === 'ok' ? 'ok' : 'warn', 1200);
-      keepCameraAlive();
+      if (allPeriksaDone()) { showPeriksaDone(); return; }   // semua selesai: kamera tetap mati
+      toast(state === 'ok' ? '✅ Sesuai tersimpan' : '❌ Tidak sesuai tersimpan', state === 'ok' ? 'success' : 'warning');
+      resumeScan();           // lanjut: kamera terbuka lagi
     }
 
     function renderPeriksaList() {
       const box = document.getElementById('periksaBox');
       if (!box) return;
-      const list = items.filter(i => i.wajibTurun);
+      const list = turunList();
       const done = list.filter(i => i.periksa).length;
-      box.innerHTML = `<div class="count">Diperiksa ${done}/${list.length} barang turun</div>` + (list.length ? list.map(i => {
+      const pct = list.length ? Math.round(done / list.length * 100) : 0;
+      document.getElementById('phCount').textContent = done + '/' + list.length;
+      document.getElementById('phBar').style.width = pct + '%';
+      const wasOpen = !!box.querySelector('details[open]');
+      box.innerHTML = `<details class="plist" ${wasOpen ? 'open' : ''}><summary><span>Daftar barang turun</span><span style="margin-left:auto;margin-right:8px;color:var(--muted)">${done}/${list.length}</span></summary><div class="plist-body">` + (list.length ? list.map(i => {
         const name = [i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || 'Tanpa Nama';
         const kc = KODES.includes(i.kode) ? 'k-' + i.kode : '';
         const lbl = i.periksa === 'ok' ? 'OK' : (i.periksa === 'tidak' ? 'TIDAK SESUAI' : 'BELUM');
@@ -511,7 +574,7 @@
               ${i.periksaTxt ? `<div class="meta">${esc(i.periksaTxt)}</div>` : ''}
             </div>
           </div>`;
-      }).join('') : '<div style="padding:18px;text-align:center;color:var(--muted)">Tidak ada barang wajib turun</div>');
+      }).join('') : '<div style="padding:18px;text-align:center;color:var(--muted)">Tidak ada barang wajib turun</div>') + '</div></details>';
     }
 
     function setKode(k) {
@@ -1056,6 +1119,7 @@
 
     async function startScan() {
       if (isScanning || camBusy) return;
+      if (scanMode === 'periksa' && periksaHold) return;   // kamera sengaja dimatikan saat hasil pemeriksaan tampil
       getCtx(); warmSpeech();
       if (!BACKEND_URL) { toast('Isi URL backend dulu di Home', 'error'); return; }
       camBusy = true;
