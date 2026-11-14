@@ -85,6 +85,13 @@
     .item .meta { font-size: .72rem; color: var(--muted); margin-top: 2px; }
     .item .badge-turun { margin-left: auto; background: var(--danger); color: #fff; font-size: .62rem; padding: 2px 7px; border-radius: 6px; font-weight: 800; letter-spacing: .05em; }
 
+    .rak-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; }
+    .rak-bar.on { background: #eef2ff; border-color: #c7d2fe; }
+    .rak-title { font-weight: 700; font-size: .85rem; } .rak-title small { font-weight: 500; color: var(--muted); font-size: .7rem; margin-left: 4px; }
+    .rak-info { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+    .rak-bar select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: .95rem; font-weight: 700; background: #fff; font-family: inherit; }
+    .rak-chip { font-size: .66rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #fef3c7; color: #92400e; }
+    .log-row.rak { background: #fff1f2; } .log-row.rak span { color: var(--danger); font-weight: 700; }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: .88rem; font-weight: 600; z-index: 300; opacity: 0; transition: all .3s; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
     .toast.success { background: var(--success); } .toast.error { background: var(--danger); } .toast.warning { background: var(--warning); }
@@ -161,6 +168,10 @@
 
     <div id="page-scan" class="page">
       <div class="card">
+        <div class="rak-bar" id="rakBar">
+          <div><div class="rak-title">Mode Rak <small>GE selain TV</small></div><div class="rak-info" id="rakInfo"></div></div>
+          <select id="rakSelect" onchange="setRak(this.value)"></select>
+        </div>
         <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()">🔦</button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
@@ -213,6 +224,45 @@
     let currentFilter = 'all';
     let currentKode = 'all';
     const KODES = ['GE', 'GB', 'GG'];
+
+    // ===== Mode Rak: rak bernomor 1-31 = tanggal pada No Faktur (format: 10516 YY MM DD ...) =====
+    let rakSel = parseInt(localStorage.getItem('stockScan_rak') || '', 10) || 0;
+    const TV_RE = /\b(tv|televisi|television)\b/i;
+    function fakturDay(nf) {
+      const m = String(nf || '').match(/^\d{5}\d{2}(\d{2})(\d{2})/);
+      const mm = m ? +m[1] : 0, dd = m ? +m[2] : 0;
+      return (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) ? dd : 0;
+    }
+    function initRak() {
+      const s = document.getElementById('rakSelect');
+      s.innerHTML = '<option value="0">Nonaktif</option>' + Array.from({ length: 31 }, (_, k) => `<option value="${k + 1}">Rak ${k + 1}</option>`).join('');
+      s.value = String(rakSel);
+      renderRakInfo();
+    }
+    function setRak(v) {
+      rakSel = parseInt(v, 10) || 0;
+      try { localStorage.setItem('stockScan_rak', rakSel); } catch (e) {}
+      renderRakInfo();
+    }
+    function renderRakInfo() {
+      const bar = document.getElementById('rakBar'), info = document.getElementById('rakInfo');
+      if (!bar) return;
+      bar.classList.toggle('on', !!rakSel);
+      if (!rakSel) { info.textContent = 'Pilih nomor rak untuk cek tanggal faktur'; return; }
+      const a = items.filter(i => i.rakItem && i.rak === rakSel);
+      info.textContent = 'Rak ' + rakSel + ' · ' + a.filter(i => i.mark === 1).length + '/' + a.length + ' sudah di-scan';
+    }
+    function renderRakWrong(it) {
+      const name = [it.jenis, it.merk, it.tipe].filter(Boolean).join(' • ') || 'Barang';
+      document.getElementById('scanResult').innerHTML = `
+        <div class="result-box error">
+          <div class="title">✋ SALAH RAK</div>
+          <div class="detail" style="font-weight:700;color:var(--text);margin-top:6px">${esc(name)}</div>
+          <div class="detail"><span class="tag k-GE">GE</span> NF: <b>${esc(it.noFaktur)}</b></div>
+          <div class="detail">${it.rak ? 'Faktur tanggal <b>' + it.rak + '</b>, rak dipilih <b>' + rakSel + '</b>. Pindahkan ke rak ' + it.rak + '.' : 'Tanggal pada nomor faktur tidak terbaca.'}</div>
+          <div class="detail">Barang ini belum di-mark.</div>
+        </div>`;
+    }
     let stream = null, videoEl = null, detector = null, zxReader = null, zxHard = null, zxCanvas = null, zxN = 0, loopGen = 0, torchOn = false;
     let isScanning = false, camBusy = false, loopTimer = null;
     let lastScanned = '', lastScanTime = 0, lastDecodeAt = 0;
@@ -239,6 +289,7 @@
     document.addEventListener('pointerdown', () => { getCtx(); warmSpeech(); }, { once: true });
 
     document.addEventListener('DOMContentLoaded', () => {
+      initRak();
       if (BACKEND_URL) {
         document.getElementById('backendUrl').value = BACKEND_URL;
         checkConnection();
@@ -340,6 +391,7 @@
         const el = document.getElementById('cnt-' + k);
         if (el) el.textContent = items.filter(i => i.kode === k).length;
       });
+      renderRakInfo();
     }
 
     function updateStats(data) {
@@ -362,7 +414,11 @@
     let itemIndex = new Map();
     function buildIndex() {
       itemIndex = new Map();
-      items.forEach(i => itemIndex.set(cleanBarcode(i.noFaktur).toUpperCase(), i));
+      items.forEach(i => {
+        i.rak = fakturDay(cleanBarcode(i.noFaktur));
+        i.rakItem = i.kode === 'GE' && !TV_RE.test(i.jenis || '');   // GE selain televisi
+        itemIndex.set(cleanBarcode(i.noFaktur).toUpperCase(), i);
+      });
     }
 
     // ===== Antrian sinkron ke server (di belakang layar) =====
@@ -498,7 +554,7 @@
     function addLog(code, type, label) {
       scanLogs.unshift({ code, type, label, t: new Date().toLocaleTimeString('id-ID') });
       if (scanLogs.length > 8) scanLogs.length = 8;
-      const icon = { ok: '✅', dup: '🔁', turun: '⬇️', nf: '❌', err: '⚠️' };
+      const icon = { ok: '✅', dup: '🔁', turun: '⬇️', nf: '❌', rak: '✋', err: '⚠️' };
       document.getElementById('scanLog').innerHTML = scanLogs.map(l =>
         `<div class="log-row ${l.type}"><span>${icon[l.type] || ''} ${esc(l.code)}</span><span>${esc(l.label)} · ${esc(l.t)}</span></div>`).join('');
     }
@@ -527,7 +583,7 @@
     }
 
     // Satu pintu untuk semua bunyi + tanda: "tit" langsung, WAJIB TURUN = "tit" + suara "Turun"
-    function signalScan(type) {
+    function signalScan(type, msg) {
       if (type === 'turun') {
         beepScan(1); playTurunSound();
         flash('#dc2626', 900); setCamStatus('⬇️ WAJIB TURUN!', 'err', 2000);
@@ -535,6 +591,10 @@
         beepScan(2); flash('#d97706', 300); setCamStatus('🔁 Sudah di-mark', 'warn', 1200);
       } else if (type === 'ok') {
         beepScan(1); flash('#16a34a', 250); setCamStatus('✅ Berhasil', 'ok', 1000);
+      } else if (type === 'rak') {
+        beep(false); speak('Salah rak');
+        try { if (navigator.vibrate) navigator.vibrate([300, 100, 300]); } catch (e) {}
+        flash('#e11d48', 900); setCamStatus('✋ SALAH RAK' + (msg ? ' — ' + msg : ''), 'err', 2500);
       } else if (type === 'nf') {
         beep(false); flash('#dc2626', 400); setCamStatus('❌ Terbaca, tapi TIDAK ADA di data', 'err', 2200);
       } else {
@@ -550,6 +610,14 @@
       // ---- Jalur cepat: data lokal (wajibTurun juga sudah ikut dari server) -> seketika ----
       const item = itemIndex.get(code.toUpperCase());
       if (item) {
+        // Mode rak: GE selain TV harus tanggal fakturnya = nomor rak, kalau tidak -> SALAH RAK (tidak di-mark)
+        if (rakSel && item.rakItem && !item.wajibTurun && item.rak !== rakSel) {
+          signalScan('rak', item.rak ? 'pindah ke rak ' + item.rak : 'tanggal faktur tak terbaca');
+          addLog(code, 'rak', item.rak ? 'salah rak → ' + item.rak : 'tgl tak terbaca');
+          renderRakWrong(item);
+          afterScanUi();
+          return;
+        }
         const already = item.mark === 1;
         if (!already) { item.mark = 1; queueSync(item.noFaktur); }
         const type = item.wajibTurun ? 'turun' : (already ? 'dup' : 'ok');
@@ -557,6 +625,15 @@
         addLog(code, type, item.wajibTurun ? 'WAJIB TURUN' : (already ? 'sudah' : 'ok'));
         renderResult(item, already);
         refreshStats();
+        afterScanUi();
+        return;
+      }
+
+      // Mode rak butuh data lokal untuk cek tanggal; jangan mark lewat server tanpa pengecekan
+      if (rakSel) {
+        signalScan('nf');
+        addLog(code, 'nf', 'tidak ada di data lokal');
+        resultEl.innerHTML = `<div class="result-box error"><div class="title">❌ Tidak Ditemukan</div><div class="detail">No Faktur: <strong>${esc(code)}</strong></div><div class="detail">Tidak ada di data lokal. Tap Refresh di Home lalu scan ulang.</div></div>`;
         afterScanUi();
         return;
       }
@@ -886,7 +963,7 @@
 
       if (q) {
         list = list.filter(i => {
-          const s = [i.noFaktur, i.kode, i.jenis, i.merk, i.tipe, i.imei, i.noPolisi].join(' ').toLowerCase();
+          const s = [i.noFaktur, i.kode, (i.rakItem ? 'rak ' + i.rak : ''), i.jenis, i.merk, i.tipe, i.imei, i.noPolisi].join(' ').toLowerCase();
           return s.includes(q);
         });
       }
@@ -904,7 +981,7 @@
           <div class="item ${kc} ${i.mark === 1 ? 'marked' : ''} ${i.wajibTurun ? 'wajib' : ''}">
             <div class="check">${i.mark === 1 ? '✓' : ''}</div>
             <div class="info">
-              <div class="top"><span class="tag">${esc(i.kode || '-')}</span><span class="nf">${esc(i.noFaktur)}</span>${i.wajibTurun ? '<span class="badge-turun">TURUN</span>' : ''}</div>
+              <div class="top"><span class="tag">${esc(i.kode || '-')}</span><span class="nf">${esc(i.noFaktur)}</span>${i.rakItem && i.rak ? '<span class="rak-chip">Rak ' + i.rak + '</span>' : ''}${i.wajibTurun ? '<span class="badge-turun">TURUN</span>' : ''}</div>
               <div class="name">${esc(name)}</div>
               <div class="meta">${i.imei ? 'IMEI: ' + esc(i.imei) : (i.noPolisi ? 'Polisi: ' + esc(i.noPolisi) : '')}</div>
             </div>
