@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0c2127" />
   <title>Stock Scan - No Faktur</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <style>
     :root {
@@ -186,6 +188,94 @@
     .status-dot.ok { background: var(--success); } .status-dot.err { background: var(--danger); }
     .sync-status { text-align: center; font-size: .78rem; color: var(--muted); margin: 8px 0 0; min-height: 1.1em; }
     .sync-status.err { color: var(--danger); font-weight: 700; cursor: pointer; }
+
+    /* ================= TEMA PROFESIONAL (override) ================= */
+    :root {
+      --ink: #0c2127; --primary: #0f5c63; --primary-d: #0a4248; --success: #12805c; --danger: #cf3b3b; --warning: #b26a12;
+      --bg: #f1f4f5; --card: #fff; --text: #0e1b1e; --muted: #60737a; --border: #dce3e6; --soft: #f5f8f8;
+      --shadow: 0 1px 2px rgba(12,33,39,.04);
+    }
+    body { font-family: Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.003em; }
+    :focus-visible { outline: 2px solid #2b9aa5; outline-offset: 2px; }
+    .header { background: var(--ink); border-radius: 0; box-shadow: 0 1px 0 rgba(255,255,255,.06); padding: 14px 16px 13px; }
+    .header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
+    .header h1 svg { background: rgba(255,255,255,.09); border-radius: 8px; }
+    .header .sub { color: #9db4ba; opacity: 1; font-size: .74rem; font-weight: 500; }
+    .gear { background: rgba(255,255,255,.09); }
+    .container { padding: 16px 14px; }
+    .card, .config-box { border-radius: 14px; box-shadow: var(--shadow); }
+
+    /* statistik: satu strip, bukan empat kartu */
+    .stats { gap: 0; background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+    .stat { border: 0; border-radius: 0; box-shadow: none; border-right: 1px solid var(--border); padding: 13px 4px 12px; }
+    .stat:last-child { border-right: 0; }
+    .stat .num { font-size: 1.55rem; font-weight: 700; letter-spacing: -.03em; }
+    .stat .label { text-transform: none; letter-spacing: 0; font-size: .7rem; font-weight: 600; }
+    .stat.total .num { color: var(--ink); }
+    .kcard { border-radius: 12px; box-shadow: none; }
+    .bar { height: 4px; }
+
+    .btn { border-radius: 10px; font-weight: 650; box-shadow: none; padding: 12px 16px; letter-spacing: 0; }
+    .btn-primary { background: var(--primary); box-shadow: none; } .btn-primary:hover { background: var(--primary-d); }
+    .btn-success { background: var(--success); box-shadow: none; }
+    .btn-danger { background: var(--danger); }
+    .btn-outline { background: #fff; border-color: #cfd8db; }
+    .btn-sm { border-radius: 9px; }
+
+    .seg { background: #e6ecee; border-radius: 10px; padding: 3px; }
+    .seg button { border-radius: 8px; font-weight: 650; color: var(--muted); }
+    .seg button.on { color: var(--ink); box-shadow: 0 1px 2px rgba(12,33,39,.14); }
+    .rak-bar { background: var(--soft); border-radius: 12px; } .rak-bar.on { background: #e8f3f4; border-color: #b9d9dc; }
+    .rak-bar select, .manual-input input, .search-box, .config-box input { border-radius: 10px; background: var(--soft); }
+    .manual-input input:focus, .search-box:focus, .config-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15,92,99,.14); }
+
+    /* kamera */
+    #camWrap { border-radius: 14px; box-shadow: none; background: #07161a; }
+    .aim { border: 2px solid rgba(255,255,255,.55); border-radius: 10px; box-shadow: 0 0 0 9999px rgba(5,16,20,.42); }
+    .cam-status { border-radius: 8px; font-weight: 600; font-size: .78rem; background: rgba(7,22,26,.78); }
+    .torch { background: rgba(7,22,26,.62); display: flex; align-items: center; justify-content: center; padding: 0; }
+    .torch svg { width: 18px; height: 18px; }
+
+    /* daftar */
+    .filter-tab, .kt { border-radius: 8px; padding: 7px 12px; font-weight: 650; }
+    .filter-tab.active { background: var(--ink); border-color: var(--ink); }
+    .item { border-radius: 10px; padding: 10px 12px; border-left-width: 3px; margin-bottom: 6px; }
+    .item.marked { background: #f1f9f5; } .item.wajib { background: #fdf2f2; }
+    .item .nf { font-size: .8rem; letter-spacing: .01em; }
+    .tag { border-radius: 5px; font-weight: 750; letter-spacing: .03em; }
+    .item .badge-turun, .pstat { border-radius: 5px; }
+    .log-row { border-radius: 8px; }
+
+    /* hasil & konfirmasi */
+    .result-box { text-align: left; border-radius: 12px; padding: 14px 16px; border-left-width: 4px; }
+    .result-box.success { background: #f0f9f4; border-color: #c4e6d4; border-left-color: var(--success); }
+    .result-box.error { background: #fdf3f3; border-color: #f3cfcf; border-left-color: var(--danger); }
+    .result-box.warning { background: #fdf8ee; border-color: #f0dfb8; border-left-color: #d49a2a; }
+    .result-box .title { font-size: 1rem; font-weight: 750; }
+    .pcard { background: #fff; border: 1px solid var(--border); border-top: 3px solid var(--primary); border-radius: 14px; padding: 16px; box-shadow: 0 6px 24px rgba(12,33,39,.08); }
+    .pcard .pc-lbl { text-transform: none; letter-spacing: 0; color: var(--muted); font-size: .76rem; font-weight: 600; }
+    .pcard .pc-name { font-size: 1.12rem; font-weight: 750; letter-spacing: -.015em; }
+    .pcard .pc-meta { font-size: .8rem; }
+    .pcard .pc-spec { background: var(--soft); border: 0; border-radius: 10px; padding: 10px 12px; gap: 8px; }
+    .pcard .pc-spec > div { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: baseline; }
+    .pcard .pc-spec span { text-transform: none; letter-spacing: 0; font-size: .74rem; font-weight: 600; }
+    .pcard .pc-spec b { font-size: .86rem; font-weight: 650; }
+    .pcard .pc-prev { background: var(--soft); border-radius: 8px; }
+    .pcard .chk-actions .btn { padding: 15px 10px; font-size: .95rem; border-radius: 11px; }
+    .pcard .chk-actions .pl-choice { background: #fff; color: #8a5a10; border: 1px solid #e2c98f; }
+    .pdone { border-radius: 14px; background: #f0f9f4; border-color: #c4e6d4; }
+    details.plist, .cek-card { border-radius: 12px; }
+    .cek-card { background: #fdf3f3; border-color: #f3cfcf; } .cek-card.ok { background: #f0f9f4; border-color: #c4e6d4; }
+    .remote-modal { backdrop-filter: blur(3px); background: rgba(7,22,26,.5); }
+    .remote-inner { border-radius: 18px; }
+
+    /* navigasi & toast */
+    .nav { background: #fff; backdrop-filter: none; border-top: 1px solid var(--border); padding-top: 0; }
+    .nav-item { border-radius: 0; font-weight: 650; padding: 10px 4px 8px; }
+    .nav-item.active { background: none; color: var(--primary); box-shadow: inset 0 2px 0 var(--primary); }
+    .toast { background: var(--ink); border-radius: 10px; font-weight: 600; box-shadow: 0 8px 24px rgba(7,22,26,.3); }
+    .toast.success { background: var(--success); } .toast.error { background: var(--danger); } .toast.warning { background: var(--warning); }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   </style>
 </head>
 <body>
@@ -242,12 +332,12 @@
       <div class="card" id="scanCard">
         <div class="seg"><button id="segScan" class="on" onclick="setMode('scan')">Scan</button><button id="segPeriksa" onclick="setMode('periksa')">Periksa Barang Turun</button></div>
         <div class="phead" id="periksaHead"><div class="ph-top"><b>Pemeriksaan barang turun</b><span id="phCount">0/0</span></div><div class="bar"><i id="phBar" style="width:0%"></i></div></div>
-        <div class="done-banner hidden" id="doneBanner"><span>Semua barang sudah di-scan ✅</span><button class="btn btn-success btn-sm" onclick="setMode('periksa')">Mulai Pemeriksaan</button></div>
+        <div class="done-banner hidden" id="doneBanner"><span>Semua barang sudah di-scan </span><button class="btn btn-success btn-sm" onclick="setMode('periksa')">Mulai Pemeriksaan</button></div>
         <div class="rak-bar" id="rakBar">
           <div><div class="rak-title">Mode Rak <small>GE selain TV</small></div><div class="rak-info" id="rakInfo"></div></div>
           <select id="rakSelect" onchange="setRak(this.value)"></select>
         </div>
-        <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()">🔦</button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
+        <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input" id="manualWrap">
@@ -345,7 +435,7 @@
       const name = [it.jenis, it.merk, it.tipe].filter(Boolean).join(' • ') || 'Barang';
       document.getElementById('scanResult').innerHTML = `
         <div class="result-box error">
-          <div class="title">✋ SALAH RAK</div>
+          <div class="title">SALAH RAK</div>
           <div class="detail" style="font-weight:700;color:var(--text);margin-top:6px">${esc(name)}</div>
           <div class="detail"><span class="tag k-GE">GE</span> NF: <b>${esc(it.noFaktur)}</b></div>
           <div class="detail">${it.rak ? 'Faktur tanggal <b>' + it.rak + '</b>, rak dipilih <b>' + rakSel + '</b>. Pindahkan ke rak ' + it.rak + '.' : 'Tanggal pada nomor faktur tidak terbaca.'}</div>
@@ -358,7 +448,7 @@
     let camHoldUntil = 0, camStatusKey = '';
     const scanLogs = [];
     const IDLE_OK = 'Arahkan ke barcode / QR';
-    const IDLE_WARN = '⚠ Belum terbaca — dekatkan, tahan stabil, cukup cahaya';
+    const IDLE_WARN = 'Belum terbaca — dekatkan, tahan stabil, cukup cahaya';
 
     // Watchdog: kamera mati/pause -> hidupkan lagi otomatis
     setInterval(() => {
@@ -413,7 +503,7 @@
       if (!it) { await loadData(true); it = itemIndex.get(cleanBarcode(nf).toUpperCase()); }
       if (!it) return;
       remoteNf = nf; pendingPeriksa = it;
-      document.getElementById('remoteBody').innerHTML = '<div class="rm-title">📱 Konfirmasi dari HP</div>' + periksaCardHtml(it);
+      document.getElementById('remoteBody').innerHTML = '<div class="rm-title">Konfirmasi dari HP</div>' + periksaCardHtml(it);
       document.getElementById('remoteModal').classList.remove('hidden');
     }
     async function pollPend() {
@@ -490,8 +580,8 @@
       try {
         const data = await api('ping');
         if (data.ok) {
-          status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 9 ? ' — ⚠ backend LAMA' : '');
-          if ((data.version || 0) < 9) toast('⚠ Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
+          status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 9 ? ' — backend LAMA' : '');
+          if ((data.version || 0) < 9) toast('Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
           document.getElementById('headerSub').textContent = 'Backend siap';
           loadData();
         } else {
@@ -537,12 +627,12 @@
       const bd = document.getElementById('infoBadge');
       if (bd) { bd.textContent = total; bd.classList.toggle('hidden', !total); }
       const missing = headers && (!headers.packaging || !headers.kelengkapan)
-        ? `<div class="cek-note">⚠ Kolom ${[!headers.packaging ? '"Packaging"' : '', !headers.kelengkapan ? '"Kelengkapan"' : ''].filter(Boolean).join(' & ')} tidak ditemukan di baris header, pengecekan terkait dilewati.</div>` : '';
+        ? `<div class="cek-note">Kolom ${[!headers.packaging ? '"Packaging"' : '', !headers.kelengkapan ? '"Kelengkapan"' : ''].filter(Boolean).join(' & ')} tidak ditemukan di baris header, pengecekan terkait dilewati.</div>` : '';
       if (!total) {
-        el.innerHTML = `<div class="cek-card ok"><div class="cek-h">✅ Data lolos pengecekan kelengkapan</div>${missing}</div>`;
+        el.innerHTML = `<div class="cek-card ok"><div class="cek-h">Data lolos pengecekan kelengkapan</div>${missing}</div>`;
         return;
       }
-      el.innerHTML = `<div class="cek-card"><div class="cek-h">⚠ ${total} No Faktur perlu dicek</div>` + groups.filter(g => g[1].length).map(g =>
+      el.innerHTML = `<div class="cek-card"><div class="cek-h">${total} No Faktur perlu dicek</div>` + groups.filter(g => g[1].length).map(g =>
         `<details><summary><span>${esc(g[0])}</span><b>${g[1].length}</b></summary><div class="cek-nf">${g[1].map(esc).join('<br>')}</div></details>`).join('') + missing + '</div>';
     }
 
@@ -550,14 +640,14 @@
       if (window.__loading) return;
       window.__loading = true;
       const btnRefresh = document.getElementById('btnRefresh');
-      const originalText = btnRefresh ? btnRefresh.innerHTML : '🔄 Refresh';
+      const originalText = btnRefresh ? btnRefresh.innerHTML : 'Refresh';
 
       try {
         if (!silent) {
           toast('Sedang memuat data...', '');
           if (btnRefresh) {
             btnRefresh.disabled = true;
-            btnRefresh.innerHTML = '⏳ Memuat...';
+            btnRefresh.innerHTML = 'Memuat...';
           }
           document.getElementById('headerSub').textContent = 'Memuat data...';
         }
@@ -604,7 +694,7 @@
       if (!b) return;
       const rest = items.length ? belumScan() : 0;
       b.classList.toggle('locked', rest > 0);
-      b.textContent = rest > 0 ? '🔒 Periksa (sisa ' + rest + ')' : 'Periksa Barang Turun';
+      b.textContent = rest > 0 ? 'Periksa (sisa ' + rest + ')' : 'Periksa Barang Turun';
     }
 
     function setMode(m) {
@@ -658,6 +748,13 @@
       }
     }
 
+    // IMEI: 5 digit terakhir ditebalkan & dibesarkan supaya mudah dicocokkan
+    function imeiBold(v) {
+      v = String(v || '');
+      if (v.length <= 5) return `<strong style="font-weight:900;color:var(--text);font-size:1.05em">${esc(v)}</strong>`;
+      return esc(v.slice(0, -5)) + `<strong style="font-weight:900;color:var(--text);font-size:1.05em">${esc(v.slice(-5))}</strong>`;
+    }
+
     function periksaCardHtml(it) {
       const name = [it.jenis, it.merk, it.tipe].filter(Boolean).join(' • ') || 'Barang';
       const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span>` : '';
@@ -666,13 +763,13 @@
         <div class="pcard">
           <div class="pc-top"><span class="pc-lbl">Barang terbaca</span>${tag}</div>
           <div class="pc-name">${esc(name)}</div>
-          <div class="pc-meta">NF <b>${esc(it.noFaktur)}</b>${it.imei ? ' · IMEI ' + esc(it.imei) : ''}</div>
+          <div class="pc-meta">NF <b>${esc(it.noFaktur)}</b>${it.imei ? ' · IMEI ' + imeiBold(it.imei) : ''}</div>
           <div class="pc-spec"><div><span>No Model</span><b>${esc(it.noModel || '-')}</b></div><div><span>Spesifikasi</span><b>${esc(it.spek || '-')}</b></div><div><span>Kelengkapan</span><b>${esc(it.kelengkapan || '-')}</b></div></div>
           ${prev}
           <div class="chk-actions" id="periksaActions">
-            <button class="btn btn-success" onclick="periksaOk()">✅ Sesuai</button>
-            <button class="btn btn-danger" onclick="periksaTidak()">❌ Tidak Sesuai</button>
-            <button class="btn pl-choice" onclick="periksaPelunasan()">💳 Pelunasan (PL)</button>
+            <button class="btn btn-success" onclick="periksaOk()">Sesuai</button>
+            <button class="btn btn-danger" onclick="periksaTidak()">Tidak Sesuai</button>
+            <button class="btn pl-choice" onclick="periksaPelunasan()">Pelunasan (PL)</button>
           </div>
           <div id="periksaForm" class="hidden">
             <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." onkeydown="if(event.key==='Enter')periksaSave()" />
@@ -692,7 +789,7 @@
       const l = turunList(), bad = l.filter(i => !i.pl && i.periksa === 'tidak').length, plN = l.filter(i => i.pl).length;
       document.getElementById('scanResult').innerHTML = `
         <div class="pdone">
-          <div class="t">✅ Semua barang turun sudah diperiksa</div>
+          <div class="t">Semua barang turun sudah diperiksa</div>
           <div class="d">${l.length - bad - plN} sesuai · ${bad} tidak sesuai${plN ? ' · ' + plN + ' pelunasan' : ''}</div>
           <button class="btn btn-outline btn-sm" onclick="resumeScan()">Scan ulang / periksa lagi</button>
         </div>`;
@@ -762,12 +859,12 @@
       unpend(it.noFaktur);
       if (VIEW === 'display') {   // dikonfirmasi dari laptop: cukup tutup kartu, HP otomatis lanjut scan
         closeRemote();
-        toast(state === 'ok' ? '✅ Sesuai tersimpan' : (state === 'pl' ? '💳 Pelunasan tersimpan' : '❌ Tidak sesuai tersimpan'), state === 'ok' ? 'success' : 'warning');
+        toast(state === 'ok' ? 'Sesuai tersimpan' : (state === 'pl' ? 'Pelunasan tersimpan' : 'Tidak sesuai tersimpan'), state === 'ok' ? 'success' : 'warning');
         setTimeout(() => loadData(true), 1500);
         return;
       }
       if (allPeriksaDone()) { showPeriksaDone(); return; }   // semua selesai: kamera tetap mati
-      toast(state === 'ok' ? '✅ Sesuai tersimpan' : (state === 'pl' ? '💳 Pelunasan tersimpan' : '❌ Tidak sesuai tersimpan'), state === 'ok' ? 'success' : 'warning');
+      toast(state === 'ok' ? 'Sesuai tersimpan' : (state === 'pl' ? 'Pelunasan tersimpan' : 'Tidak sesuai tersimpan'), state === 'ok' ? 'success' : 'warning');
       resumeScan();           // lanjut: kamera terbuka lagi
     }
 
@@ -930,10 +1027,10 @@
       if (!el) return;
       if (failedJobs.length) {
         el.className = 'sync-status err';
-        el.textContent = '⚠ ' + failedJobs.length + ' gagal sinkron (' + (lastSyncErr || 'cek koneksi') + ') — tap untuk coba lagi';
+        el.textContent = '' + failedJobs.length + ' gagal sinkron (' + (lastSyncErr || 'cek koneksi') + ') — tap untuk coba lagi';
       } else if (syncQueue.length) {
         el.className = 'sync-status';
-        el.textContent = '⏳ Menyimpan ' + syncQueue.length + '...';
+        el.textContent = 'Menyimpan ' + syncQueue.length + '...';
       } else {
         el.className = 'sync-status';
         el.textContent = '';
@@ -1029,7 +1126,7 @@
       if (d.wajibTurun) {
         resultEl.innerHTML = `
           <div class="result-box error">
-            <div class="title">⬇ WAJIB TURUN</div>
+            <div class="title">WAJIB TURUN</div>
             <div class="detail" style="font-weight:700;color:var(--text);margin-top:6px">${esc(name)}</div>
             ${nf}
             ${d.imei ? `<div class="detail">IMEI: ${esc(d.imei)}</div>` : ''}
@@ -1054,7 +1151,7 @@
     function addLog(code, type, label) {
       scanLogs.unshift({ code, type, label, t: new Date().toLocaleTimeString('id-ID') });
       if (scanLogs.length > 8) scanLogs.length = 8;
-      const icon = { ok: '✅', dup: '🔁', turun: '⬇️', nf: '❌', rak: '✋', bad: '❌', err: '⚠️' };
+      const icon = { ok: '', dup: '', turun: '', nf: '', rak: '', bad: '', err: '' };
       document.getElementById('scanLog').innerHTML = scanLogs.map(l =>
         `<div class="log-row ${l.type}"><span>${icon[l.type] || ''} ${esc(l.code)}</span><span>${esc(l.label)} · ${esc(l.t)}</span></div>`).join('');
     }
@@ -1086,19 +1183,19 @@
     function signalScan(type, msg) {
       if (type === 'turun') {
         beepScan(1); playTurunSound();
-        flash('#dc2626', 900); setCamStatus('⬇️ WAJIB TURUN!', 'err', 2000);
+        flash('#dc2626', 900); setCamStatus('WAJIB TURUN!', 'err', 2000);
       } else if (type === 'dup') {
-        beepScan(2); flash('#d97706', 300); setCamStatus('🔁 Sudah di-mark', 'warn', 1200);
+        beepScan(2); flash('#d97706', 300); setCamStatus('Sudah di-mark', 'warn', 1200);
       } else if (type === 'ok') {
-        beepScan(1); flash('#16a34a', 250); setCamStatus('✅ Berhasil', 'ok', 1000);
+        beepScan(1); flash('#16a34a', 250); setCamStatus('Berhasil', 'ok', 1000);
       } else if (type === 'rak') {
         beep(false); speak('Salah rak');
         try { if (navigator.vibrate) navigator.vibrate([300, 100, 300]); } catch (e) {}
-        flash('#e11d48', 900); setCamStatus('✋ SALAH RAK' + (msg ? ' — ' + msg : ''), 'err', 2500);
+        flash('#e11d48', 900); setCamStatus('SALAH RAK' + (msg ? ' — ' + msg : ''), 'err', 2500);
       } else if (type === 'nf') {
-        beep(false); flash('#dc2626', 400); setCamStatus('❌ Terbaca, tapi TIDAK ADA di data', 'err', 2200);
+        beep(false); flash('#dc2626', 400); setCamStatus('Terbaca, tapi TIDAK ADA di data', 'err', 2200);
       } else {
-        beep(false); flash('#dc2626', 400); setCamStatus('⚠ Error koneksi/server (bukan salah baca)', 'err', 2500);
+        beep(false); flash('#dc2626', 400); setCamStatus('Error koneksi/server (bukan salah baca)', 'err', 2500);
       }
     }
 
@@ -1139,7 +1236,7 @@
         if (wrong) {   // wajib turun + salah rak: notif turun dulu, lalu salah rak
           addLog(code, 'rak', rakLog);
           const box = document.querySelector('#scanResult .result-box');
-          if (box) box.insertAdjacentHTML('beforeend', `<div class="rakwarn">✋ SALAH RAK — ${esc(rakMsg)}</div>`);
+          if (box) box.insertAdjacentHTML('beforeend', `<div class="rakwarn">SALAH RAK — ${esc(rakMsg)}</div>`);
           setTimeout(() => signalScan('rak', rakMsg), 1100);
         }
         refreshStats();
@@ -1151,7 +1248,7 @@
       if (rakSel) {
         signalScan('nf');
         addLog(code, 'nf', 'tidak ada di data lokal');
-        resultEl.innerHTML = `<div class="result-box error"><div class="title">❌ Tidak Ditemukan</div><div class="detail">No Faktur: <strong>${esc(code)}</strong></div><div class="detail">Tidak ada di data lokal. Tap Refresh di Home lalu scan ulang.</div></div>`;
+        resultEl.innerHTML = `<div class="result-box error"><div class="title">Tidak Ditemukan</div><div class="detail">No Faktur: <strong>${esc(code)}</strong></div><div class="detail">Tidak ada di data lokal. Tap Refresh di Home lalu scan ulang.</div></div>`;
         afterScanUi();
         return;
       }
@@ -1167,7 +1264,7 @@
           addLog(code, 'nf', 'tidak ada di data');
           resultEl.innerHTML = `
             <div class="result-box error">
-              <div class="title">❌ Tidak Ditemukan</div>
+              <div class="title">Tidak Ditemukan</div>
               <div class="detail">No Faktur: <strong>${esc(code)}</strong></div>
               <div class="detail">Kode terbaca normal, tapi tidak ada di sheet.</div>
             </div>`;
@@ -1185,7 +1282,7 @@
       } catch (e) {
         signalScan('err');
         addLog(code, 'err', 'gagal kirim');
-        resultEl.innerHTML = `<div class="result-box error"><div class="title">⚠ Error Koneksi</div><div class="detail">${esc(e.message)}<br>Bukan salah baca — scan ulang / ketik manual.</div></div>`;
+        resultEl.innerHTML = `<div class="result-box error"><div class="title">Error Koneksi</div><div class="detail">${esc(e.message)}<br>Bukan salah baca — scan ulang / ketik manual.</div></div>`;
       }
     }
 
@@ -1347,7 +1444,7 @@
     function setBtn(on, busyText) {
       const btn = document.getElementById('btnStartScan');
       btn.disabled = !!busyText;
-      btn.textContent = busyText || (on ? '⏹ Stop Kamera' : 'Mulai Kamera');
+      btn.textContent = busyText || (on ? 'Stop Kamera' : 'Mulai Kamera');
       btn.classList.toggle('btn-danger', !!on && !busyText);
       btn.classList.toggle('btn-primary', !on || !!busyText);
     }
@@ -1402,7 +1499,7 @@
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         isScanning = false;
         setBtn(false);
-        setCamStatus('❌ ' + camErrorText(err), 'err');
+        setCamStatus('' + camErrorText(err), 'err');
         toast(camErrorText(err), 'error');
       } finally {
         camBusy = false;
@@ -1423,7 +1520,7 @@
             code = decodeZx(v);
           }
           if (code) handleDecoded(code);
-          else if (seenButEmpty) setCamStatus('⚠ Kode terdeteksi tapi isinya tidak terbaca — dekatkan / tahan stabil', 'warn', 800);
+          else if (seenButEmpty) setCamStatus('Kode terdeteksi tapi isinya tidak terbaca — dekatkan / tahan stabil', 'warn', 800);
           else idleStatus();
         } catch (e) {}
       }
@@ -1441,7 +1538,7 @@
 
     function handleDecoded(raw) {
       const c = cleanBarcode(raw);
-      if (!c) { setCamStatus('⚠ Kode terbaca tapi kosong', 'warn', 800); return; }
+      if (!c) { setCamStatus('Kode terbaca tapi kosong', 'warn', 800); return; }
       const now = Date.now();
       lastDecodeAt = now;
       // kode yang sama ditahan 2 detik (anti dobel), kode beda langsung diproses
