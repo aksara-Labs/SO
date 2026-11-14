@@ -95,6 +95,9 @@
 
     #reader {
       width: 100%;
+      max-width: min(340px, 36vh);   /* tinggi kamera dibatasi, hasil scan di bawah tetap kelihatan */
+      margin-left: auto;
+      margin-right: auto;
       border-radius: 12px;
       overflow: hidden;
       margin-bottom: 12px;
@@ -332,6 +335,8 @@
     }
     .status-dot.ok { background: var(--success); }
     .status-dot.err { background: var(--danger); }
+    .sync-status { text-align:center; font-size:0.8rem; color:var(--muted); margin:6px 0 0; min-height:1.1em; }
+    .sync-status.err { color:#dc2626; font-weight:600; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -385,6 +390,7 @@
       <div class="card">
         <div id="reader"></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
+        <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input">
           <input type="text" id="manualBarcode" placeholder="Ketik / scan No Faktur..." inputmode="numeric" />
           <button class="btn btn-primary" onclick="doScan(document.getElementById('manualBarcode').value)">Cari</button>
@@ -420,16 +426,6 @@
   </div>
 
   <div class="toast" id="toast"></div>
-
-  <div class="alert-overlay" id="alertOverlay">
-    <div class="alert-box">
-      <div class="icon">⬇️</div>
-      <div class="title">WAJIB TURUN!</div>
-      <div class="desc">Barang ini harus segera diturunkan.</div>
-      <div class="detail" id="alertDetail"></div>
-      <button class="btn btn-danger btn-block" onclick="closeAlert()">Mengerti</button>
-    </div>
-  </div>
 
   <script>
     let BACKEND_URL = localStorage.getItem('stockScan_backend') || '';
@@ -517,6 +513,8 @@
         if (!data.ok) throw new Error(data.error || 'Gagal load');
 
         items = data.items || [];
+        buildIndex();
+        reapplyPendingMarks();
         updateStats(data);
         document.getElementById('statsSection').classList.remove('hidden');
         document.getElementById('headerSub').textContent = items.length + ' barang • Sinkron';
@@ -548,14 +546,155 @@
         .replace(/[^0-9A-Za-z]/g, ''); // sisakan huruf & angka saja
     }
 
+    // ===== Index lokal: lookup instan tanpa nunggu server =====
+    let itemIndex = new Map();
+    function buildIndex() {
+      itemIndex = new Map();
+      items.forEach(i => itemIndex.set(cleanBarcode(i.noFaktur).toUpperCase(), i));
+    }
+
+    // ===== Antrian sinkron ke server (di belakang layar) =====
+    const syncQueue = [];
+    let failedJobs = [];
+    let syncing = false;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    function updateSyncStatus() {
+      const el = document.getElementById('syncStatus');
+      if (!el) return;
+      if (failedJobs.length) {
+        el.className = 'sync-status err';
+        el.textContent = '⚠ ' + failedJobs.length + ' gagal sinkron — tap untuk coba lagi';
+      } else if (syncQueue.length) {
+        el.className = 'sync-status';
+        el.textContent = '⏳ Menyimpan ' + syncQueue.length + '...';
+      } else {
+        el.className = 'sync-status';
+        el.textContent = '';
+      }
+    }
+
+    function reapplyPendingMarks() {
+      // data baru dari server belum tentu memuat scan yang masih antri
+      syncQueue.concat(failedJobs).forEach(j => {
+        const it = itemIndex.get(j.code.toUpperCase());
+        if (it) it.mark = 1;
+      });
+    }
+
+    function queueSync(code) {
+      syncQueue.push({ code, tries: 0 });
+      updateSyncStatus();
+      processSync();
+    }
+
+    async function processSync() {
+      if (syncing) return;
+      syncing = true;
+      while (syncQueue.length) {
+        const job = syncQueue[0];
+        try {
+          const data = await api('scan', { nf: job.code });
+          syncQueue.shift();
+          const it = itemIndex.get(job.code.toUpperCase());
+          if (!data.found) {
+            if (it) it.mark = 0;
+            toast('Server tidak menemukan ' + job.code, 'error');
+          } else if (data.wajibTurun && it && !it.wajibTurun) {
+            // server lebih tahu: ternyata barang ini WAJIB TURUN
+            it.wajibTurun = true;
+            playTurunSound();
+            renderResult(it, false);
+            refreshStats();
+          }
+        } catch (e) {
+          job.tries++;
+          if (job.tries >= 5) {
+            syncQueue.shift();
+            failedJobs.push(job);
+          } else {
+            await sleep(1200 * job.tries);
+          }
+        }
+        updateSyncStatus();
+      }
+      syncing = false;
+      updateSyncStatus();
+    }
+
+    function retryFailed() {
+      if (!failedJobs.length) return;
+      failedJobs.forEach(j => { j.tries = 0; syncQueue.push(j); });
+      failedJobs = [];
+      updateSyncStatus();
+      processSync();
+    }
+
+    function refreshStats() {
+      updateStats({
+        total: items.length,
+        marked: items.filter(i => i.mark === 1).length,
+        wajibTurunCount: items.filter(i => i.wajibTurun).length
+      });
+    }
+
+    function renderResult(d, alreadyMarked) {
+      const resultEl = document.getElementById('scanResult');
+      const name = [d.jenis, d.merk, d.tipe].filter(Boolean).join(' • ') || 'Barang';
+      if (d.wajibTurun) {
+        resultEl.innerHTML = `
+          <div class="result-box error">
+            <div class="title">⬇️ WAJIB TURUN!</div>
+            <div class="detail" style="font-weight:600;margin-top:6px">${esc(name)}</div>
+            <div class="detail">NF: ${esc(d.noFaktur)}</div>
+            ${d.imei ? `<div class="detail">IMEI: ${esc(d.imei)}</div>` : ''}
+            ${d.noPolisi ? `<div class="detail">Polisi: ${esc(d.noPolisi)}</div>` : ''}
+          </div>`;
+      } else {
+        resultEl.innerHTML = `
+          <div class="result-box ${alreadyMarked ? 'warning' : 'success'}">
+            <div class="title">${alreadyMarked ? '✓ Sudah di-Mark' : '✅ Berhasil di-Mark'}</div>
+            <div class="detail" style="font-weight:600;margin-top:6px">${esc(name)}</div>
+            <div class="detail">NF: ${esc(d.noFaktur)}</div>
+          </div>`;
+      }
+    }
+
+    function afterScanUi() {
+      setTimeout(() => {
+        const input = document.getElementById('manualBarcode');
+        input.value = '';
+        if (!isScanning) input.focus();   // jangan buka keyboard saat kamera aktif
+        keepCameraAlive();
+      }, 400);
+    }
+
     async function doScan(code) {
       code = cleanBarcode(code);
       if (!code) return;
 
       document.getElementById('manualBarcode').value = code;
       const resultEl = document.getElementById('scanResult');
-      resultEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted)">Mencari...</div>';
 
+      // ---- Jalur cepat: barang ada di data lokal -> hasil + bunyi seketika ----
+      const item = itemIndex.get(code.toUpperCase());
+      if (item) {
+        const alreadyMarked = item.mark === 1;
+        if (!alreadyMarked) {
+          item.mark = 1;
+          queueSync(item.noFaktur);
+        }
+        if (item.wajibTurun) playTurunSound();
+        else beepScan(alreadyMarked ? 2 : 1);   // tit / tit-tit kalau sudah pernah
+        renderResult(item, alreadyMarked);
+        refreshStats();
+        afterScanUi();
+        return;
+      }
+
+      // ---- Tidak ada di lokal -> tanya server (data mungkin lebih baru) ----
+      beepScan(1);
+      resultEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted)">Mencari...</div>';
       try {
         const data = await api('scan', { nf: code });
 
@@ -567,77 +706,30 @@
             </div>`;
           toast('Tidak ditemukan', 'error');
           beep(false);
+          afterScanUi();
           return;
         }
 
         const idx = items.findIndex(i => i.noFaktur === data.noFaktur);
         if (idx >= 0) items[idx].mark = 1;
 
-        const name = [data.jenis, data.merk, data.tipe].filter(Boolean).join(' • ') || 'Barang';
+        if (data.wajibTurun) playTurunSound();
+        else if (data.alreadyMarked) beepScan(2);
 
-        if (data.wajibTurun) {
-          showTurunAlert(data);
-          resultEl.innerHTML = `
-            <div class="result-box error">
-              <div class="title">⬇️ WAJIB TURUN!</div>
-              <div class="detail" style="font-weight:600;margin-top:6px">${esc(name)}</div>
-              <div class="detail">NF: ${esc(data.noFaktur)}</div>
-            </div>`;
-        } else {
-          resultEl.innerHTML = `
-            <div class="result-box ${data.alreadyMarked ? 'warning' : 'success'}">
-              <div class="title">${data.alreadyMarked ? '✓ Sudah di-Mark' : '✅ Berhasil di-Mark'}</div>
-              <div class="detail" style="font-weight:600;margin-top:6px">${esc(name)}</div>
-              <div class="detail">NF: ${esc(data.noFaktur)}</div>
-            </div>`;
-          toast(data.alreadyMarked ? 'Sudah ditandai sebelumnya' : 'Mark = 1 ✓', data.alreadyMarked ? 'warning' : 'success');
-          beep(true);
-        }
-
-        updateStats({
-          total: items.length,
-          marked: items.filter(i => i.mark === 1).length,
-          wajibTurunCount: items.filter(i => i.wajibTurun).length
-        });
-
-        setTimeout(() => {
-          const input = document.getElementById('manualBarcode');
-          input.value = '';
-          if (!isScanning) input.focus();   // jangan buka keyboard saat kamera aktif
-          keepCameraAlive();
-        }, 600);
-
+        renderResult(data, data.alreadyMarked);
+        refreshStats();
+        afterScanUi();
       } catch (e) {
         resultEl.innerHTML = `<div class="result-box error"><div class="title">Error</div><div class="detail">${esc(e.message)}</div></div>`;
         toast(e.message, 'error');
       }
     }
 
-    function showTurunAlert(data) {
-      const name = [data.jenis, data.merk, data.tipe].filter(Boolean).join(' • ') || '-';
-      document.getElementById('alertDetail').innerHTML = `
-        <strong>${esc(name)}</strong><br>
-        No Faktur: <code>${esc(data.noFaktur)}</code><br>
-        ${data.imei ? 'IMEI: ' + esc(data.imei) : ''}
-        ${data.noPolisi ? 'Polisi: ' + esc(data.noPolisi) : ''}
-      `;
-      document.getElementById('alertOverlay').classList.add('show');
-
-      // Suara + getar lebih kuat
-      speak('Wajib turun');
+    // Suara + getar langsung bareng saat hasil scan muncul (tanpa overlay)
+    function playTurunSound() {
+      speak('Turun');
       alarmBeep();
-      setTimeout(() => alarmBeep(), 800);
-      setTimeout(() => speak('Wajib turun'), 900);
-
-      try {
-        if (navigator.vibrate) {
-          navigator.vibrate([300, 100, 300, 100, 500, 100, 300]);
-        }
-      } catch(e){}
-    }
-
-    function closeAlert() {
-      document.getElementById('alertOverlay').classList.remove('show');
+      try { if (navigator.vibrate) navigator.vibrate([200, 80, 200]); } catch (e) {}
       setTimeout(keepCameraAlive, 300);
     }
 
@@ -661,24 +753,51 @@
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'id-ID';
-        u.rate = 0.85;
+        u.rate = 1.0;
         u.pitch = 1.15;
         u.volume = 1.0;
         window.speechSynthesis.speak(u);
       } catch (e) {}
     }
 
-    function beep(success) {
+    // "Tit" khas mesin scanner (n kali)
+    function beepScan(times = 1) {
       try {
         const ctx = getCtx();
+        const t0 = ctx.currentTime;
+        for (let k = 0; k < times; k++) {
+          const t = t0 + k * 0.12;
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.value = 2000;
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.25, t + 0.005);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.08);
+        }
+      } catch (e) {}
+    }
+
+    function beep(success) {
+      if (success) { beepScan(1); return; }
+      try {
+        const ctx = getCtx();
+        const t = ctx.currentTime;
         const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = success ? 880 : 300;
-        gain.gain.value = 0.2;
-        osc.start();
-        setTimeout(() => { try { osc.stop(); } catch(e){} }, success ? 130 : 280);
+        const g = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.value = 300;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.3);
       } catch (e) {}
     }
 
@@ -686,8 +805,8 @@
       try {
         const ctx = getCtx();
         let t = ctx.currentTime;
-        // Bunyi alarm lebih panjang & keras
-        for (let i = 0; i < 6; i++) {
+        // Bunyi alarm singkat, bareng ucapan "Turun"
+        for (let i = 0; i < 2; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.connect(gain);
@@ -709,6 +828,7 @@
     }
 
     async function startScan() {
+      getCtx();   // aktifkan audio dari tap user supaya bunyi tidak telat
       if (!BACKEND_URL) {
         toast('Isi URL backend dulu di Home', 'error');
         return;
@@ -732,24 +852,54 @@
         const readerEl = document.getElementById('reader');
         readerEl.innerHTML = '';
 
-        html5QrCode = new Html5Qrcode('reader');
-        await html5QrCode.start(
-          { facingMode: 'environment' },
-          { 
-            fps: 10, 
-            qrbox: { width: 280, height: 140 },
-            aspectRatio: 1.777
-          },
-          (decoded) => {
-            const now = Date.now();
-            // Debounce lebih pendek biar bisa scan cepat bergantian
-            if (decoded === lastScanned && now - lastScanTime < 1600) return;
-            lastScanned = decoded;
-            lastScanTime = now;
-            doScan(decoded);
-          },
-          () => {}
-        );
+        html5QrCode = new Html5Qrcode('reader', {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.QR_CODE
+          ],
+          useBarCodeDetectorIfSupported: true,   // pakai decoder bawaan HP kalau ada (jauh lebih cepat)
+          verbose: false
+        });
+
+        const scanCfg = {
+          fps: 25,
+          // kotak baca lebar untuk barcode 1D
+          qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.floor(Math.min(h * 0.55, w * 0.9)) }),
+          disableFlip: true   // tidak perlu scan ulang versi mirror -> 2x lebih ringan
+        };
+
+        const onDecode = (decoded) => {
+          const c = cleanBarcode(decoded);
+          if (!c) return;
+          const now = Date.now();
+          // kode yang sama ditahan 1.2 detik, beda kode langsung diproses
+          if (c === lastScanned && now - lastScanTime < 1200) return;
+          lastScanned = c;
+          lastScanTime = now;
+          doScan(c);
+        };
+
+        try {
+          await html5QrCode.start(
+            { facingMode: 'environment' },
+            Object.assign({}, scanCfg, {
+              videoConstraints: {
+                facingMode: 'environment',
+                width: { ideal: 1024 },
+                height: { ideal: 768 },
+                advanced: [{ focusMode: 'continuous' }]
+              }
+            }),
+            onDecode,
+            () => {}
+          );
+        } catch (e1) {
+          // fallback: pengaturan standar kalau HP tidak support constraint di atas
+          await html5QrCode.start({ facingMode: 'environment' }, scanCfg, onDecode, () => {});
+        }
 
         isScanning = true;
         btn.disabled = false;
