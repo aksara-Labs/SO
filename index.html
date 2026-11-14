@@ -501,7 +501,8 @@
       try {
         const data = await api('ping');
         if (data.ok) {
-          status.innerHTML = '<span class="status-dot ok"></span>Terhubung';
+          status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 3 ? ' — ⚠ backend LAMA' : '');
+          if ((data.version || 0) < 3) toast('⚠ Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
           document.getElementById('headerSub').textContent = 'Backend siap';
           loadData();
         } else {
@@ -572,6 +573,7 @@
     // ===== Antrian sinkron ke server (di belakang layar) =====
     const syncQueue = [];
     let failedJobs = [];
+    let lastSyncErr = '', legacyBackend = false;
     let syncing = false;
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -580,7 +582,7 @@
       if (!el) return;
       if (failedJobs.length) {
         el.className = 'sync-status err';
-        el.textContent = '⚠ ' + failedJobs.length + ' gagal sinkron — tap untuk coba lagi';
+        el.textContent = '⚠ ' + failedJobs.length + ' gagal sinkron (' + (lastSyncErr || 'cek koneksi') + ') — tap untuk coba lagi';
       } else if (syncQueue.length) {
         el.className = 'sync-status';
         el.textContent = '⏳ Menyimpan ' + syncQueue.length + '...';
@@ -610,7 +612,22 @@
       while (syncQueue.length) {
         const batch = syncQueue.splice(0, 25);   // kirim banyak sekaligus = jauh lebih cepat
         try {
-          const data = await api('markbatch', { nf: batch.map(j => j.code).join(',') });
+          let data;
+          if (legacyBackend) {
+            // backend lama belum punya markbatch -> kirim satu-satu
+            const rs = await Promise.all(batch.map(async j => {
+              const r = await api('scan', { nf: j.code });
+              return { nf: j.code, found: !!r.found, wajibTurun: !!r.wajibTurun };
+            }));
+            data = { ok: true, results: rs };
+          } else {
+            data = await api('markbatch', { nf: batch.map(j => j.code).join(',') });
+            if (!data.ok && /tidak dikenal/i.test(data.error || '')) {
+              legacyBackend = true;
+              syncQueue.unshift(...batch);
+              continue;
+            }
+          }
           if (!data.ok) throw new Error(data.error || 'gagal');
           (data.results || []).forEach(r => {
             const it = itemIndex.get(cleanBarcode(r.nf).toUpperCase());
@@ -625,6 +642,7 @@
             }
           });
         } catch (e) {
+          lastSyncErr = e.message || 'error';
           const back = [];
           batch.forEach(j => { j.tries++; (j.tries >= 5 ? failedJobs : back).push(j); });
           syncQueue.unshift(...back);
