@@ -92,6 +92,7 @@
     .rak-bar select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: .95rem; font-weight: 700; background: #fff; font-family: inherit; }
     .rak-chip { font-size: .66rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #fef3c7; color: #92400e; }
     .log-row.rak { background: #fff1f2; } .log-row.rak span { color: var(--danger); font-weight: 700; }
+    .rakwarn { margin-top: 10px; padding: 9px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 800; font-size: .85rem; }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: .88rem; font-weight: 600; z-index: 300; opacity: 0; transition: all .3s; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
     .toast.success { background: var(--success); } .toast.error { background: var(--danger); } .toast.warning { background: var(--warning); }
@@ -290,6 +291,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       initRak();
+      restoreQueue();
+      processKet();
       if (BACKEND_URL) {
         document.getElementById('backendUrl').value = BACKEND_URL;
         checkConnection();
@@ -325,8 +328,8 @@
       try {
         const data = await api('ping');
         if (data.ok) {
-          status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 3 ? ' — ⚠ backend LAMA' : '');
-          if ((data.version || 0) < 3) toast('⚠ Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
+          status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 4 ? ' — ⚠ backend LAMA' : '');
+          if ((data.version || 0) < 4) toast('⚠ Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
           document.getElementById('headerSub').textContent = 'Backend siap';
           loadData();
         } else {
@@ -416,6 +419,7 @@
       itemIndex = new Map();
       items.forEach(i => {
         i.rak = fakturDay(cleanBarcode(i.noFaktur));
+        i.ketSalah = /salah rak/i.test(i.ket || '');
         i.rakItem = i.kode === 'GE' && !TV_RE.test(i.jenis || '');   // GE selain televisi
         itemIndex.set(cleanBarcode(i.noFaktur).toUpperCase(), i);
       });
@@ -424,11 +428,51 @@
     // ===== Antrian sinkron ke server (di belakang layar) =====
     const syncQueue = [];
     let failedJobs = [];
-    let lastSyncErr = '', legacyBackend = false;
+    let lastSyncErr = '', legacyBackend = false, inflight = [];
+    function saveQueue() {
+      try {
+        const codes = [...new Set(syncQueue.concat(failedJobs, inflight).map(j => j.code))];
+        localStorage.setItem('stockScan_queue', JSON.stringify(codes));
+      } catch (e) {}
+    }
+    // ===== Tulis "Salah rak" ke kolom Ket (antrian sendiri, tersimpan di HP, dicoba ulang) =====
+    let ketQueue = [], ketBusy = false;
+    try { ketQueue = JSON.parse(localStorage.getItem('stockScan_ket') || '[]'); } catch (e) {}
+    function saveKet() { try { localStorage.setItem('stockScan_ket', JSON.stringify(ketQueue)); } catch (e) {} }
+    function queueKet(nf, txt) {
+      ketQueue = ketQueue.filter(j => j.nf !== nf);
+      ketQueue.push({ nf, txt, tries: 0 });
+      saveKet();
+      processKet();
+    }
+    async function processKet() {
+      if (ketBusy || !BACKEND_URL) return;
+      ketBusy = true;
+      while (ketQueue.length) {
+        const j = ketQueue[0];
+        try {
+          const r = await api('ket', { nf: j.nf, txt: j.txt });
+          if (!r.ok) throw new Error(r.error || 'gagal');
+          ketQueue.shift(); saveKet();
+        } catch (e) {
+          j.tries = (j.tries || 0) + 1;
+          if (j.tries >= 6 || /tidak dikenal/i.test(e.message)) {
+            ketQueue.shift(); saveKet();
+            toast('Gagal menulis kolom Ket: ' + e.message + ' (paste Code.gs terbaru & deploy ulang)', 'error');
+          } else await sleep(2500);
+        }
+      }
+      ketBusy = false;
+    }
+    function restoreQueue() {
+      try { JSON.parse(localStorage.getItem('stockScan_queue') || '[]').forEach(c => syncQueue.push({ code: c, tries: 0 })); } catch (e) {}
+      if (syncQueue.length && BACKEND_URL) { updateSyncStatus(); processSync(); }
+    }
     let syncing = false;
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
     function updateSyncStatus() {
+      saveQueue();
       const el = document.getElementById('syncStatus');
       if (!el) return;
       if (failedJobs.length) {
@@ -462,6 +506,7 @@
       syncing = true;
       while (syncQueue.length) {
         const batch = syncQueue.splice(0, 25);   // kirim banyak sekaligus = jauh lebih cepat
+        inflight = batch;
         try {
           let data;
           if (legacyBackend) {
@@ -499,6 +544,7 @@
           syncQueue.unshift(...back);
           await sleep(1200);
         }
+        inflight = [];
         updateSyncStatus();
       }
       syncing = false;
@@ -610,20 +656,34 @@
       // ---- Jalur cepat: data lokal (wajibTurun juga sudah ikut dari server) -> seketika ----
       const item = itemIndex.get(code.toUpperCase());
       if (item) {
-        // Mode rak: GE selain TV harus tanggal fakturnya = nomor rak, kalau tidak -> SALAH RAK (tidak di-mark)
-        if (rakSel && item.rakItem && !item.wajibTurun && item.rak !== rakSel) {
-          signalScan('rak', item.rak ? 'pindah ke rak ' + item.rak : 'tanggal faktur tak terbaca');
-          addLog(code, 'rak', item.rak ? 'salah rak → ' + item.rak : 'tgl tak terbaca');
+        // Mode rak: GE selain TV harus tanggal fakturnya = nomor rak
+        const wrong = !!(rakSel && item.rakItem && item.rak !== rakSel);
+        const rakMsg = item.rak ? 'pindah ke rak ' + item.rak : 'tanggal faktur tak terbaca';
+        const rakLog = item.rak ? 'salah rak → ' + item.rak : 'tgl tak terbaca';
+        // catatan di kolom Ket: tulis "Salah rak"; hapus lagi kalau nanti discan di rak yang benar
+        if (wrong && item.rak && !item.ketSalah) { item.ketSalah = true; queueKet(item.noFaktur, 'Salah rak'); }
+        if (!wrong && rakSel && item.rakItem && item.ketSalah) { item.ketSalah = false; queueKet(item.noFaktur, ''); }
+
+        if (wrong && !item.wajibTurun) {
+          signalScan('rak', rakMsg);
+          addLog(code, 'rak', rakLog);
           renderRakWrong(item);
           afterScanUi();
           return;
         }
+
         const already = item.mark === 1;
         if (!already) { item.mark = 1; queueSync(item.noFaktur); }
         const type = item.wajibTurun ? 'turun' : (already ? 'dup' : 'ok');
         signalScan(type);
         addLog(code, type, item.wajibTurun ? 'WAJIB TURUN' : (already ? 'sudah' : 'ok'));
         renderResult(item, already);
+        if (wrong) {   // wajib turun + salah rak: notif turun dulu, lalu salah rak
+          addLog(code, 'rak', rakLog);
+          const box = document.querySelector('#scanResult .result-box');
+          if (box) box.insertAdjacentHTML('beforeend', `<div class="rakwarn">✋ SALAH RAK — ${esc(rakMsg)}</div>`);
+          setTimeout(() => signalScan('rak', rakMsg), 1100);
+        }
         refreshStats();
         afterScanUi();
         return;
@@ -672,7 +732,7 @@
     }
 
     function playTurunSound() {
-      speak('Turun');
+      if (window.speechSynthesis) speak('Turun'); else alarmBeep();
       try { if (navigator.vibrate) navigator.vibrate([200, 80, 200]); } catch (e) {}
     }
 
@@ -974,7 +1034,7 @@
         return;
       }
 
-      el.innerHTML = `<div class="count">${list.length} data</div>` + list.slice(0, 250).map(i => {
+      el.innerHTML = `<div class="count">${list.length} data${list.length > 250 ? ' (tampil 250 pertama, persempit dengan filter / cari)' : ''}</div>` + list.slice(0, 250).map(i => {
         const name = [i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || 'Tanpa Nama';
         const kc = KODES.includes(i.kode) ? 'k-' + i.kode : '';
         return `
@@ -994,6 +1054,7 @@
       try {
         const data = await api('reset');
         if (data.ok) {
+          syncQueue.length = 0; failedJobs = []; updateSyncStatus();
           items.forEach(i => i.mark = 0);
           updateStats({ total: items.length, marked: 0, wajibTurunCount: items.filter(i => i.wajibTurun).length });
           renderList();
