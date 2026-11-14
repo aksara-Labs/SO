@@ -130,6 +130,16 @@
     details.plist > summary::after { content: '▾'; color: var(--muted); transition: transform .2s; }
     details.plist[open] > summary::after { transform: rotate(180deg); }
     details.plist .plist-body { padding: 0 10px 8px; max-height: 45vh; overflow-y: auto; }
+    .cek-card { border: 1px solid #fecdd3; background: #fff1f2; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+    .cek-card.ok { border-color: #a7f3d0; background: #ecfdf5; }
+    .cek-card .cek-h { font-size: .85rem; font-weight: 800; color: #be123c; } .cek-card.ok .cek-h { color: #065f46; }
+    .cek-card details { margin-top: 8px; background: #fff; border: 1px solid #fecdd3; border-radius: 10px; }
+    .cek-card summary { cursor: pointer; padding: 9px 11px; font-size: .78rem; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+    .cek-card summary::-webkit-details-marker { display: none; }
+    .cek-card summary b { color: #be123c; }
+    .cek-card .cek-nf { padding: 0 11px 10px; font-family: ui-monospace, Menlo, monospace; font-size: .76rem; line-height: 1.7; word-break: break-word; max-height: 30vh; overflow-y: auto; }
+    .cek-card .cek-note { font-size: .72rem; color: #92400e; margin-top: 8px; }
+    .nav-badge { position: absolute; top: 2px; left: 55%; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: .62rem; font-weight: 800; line-height: 17px; }
     .rakwarn { margin-top: 10px; padding: 9px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 800; font-size: .85rem; }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: .88rem; font-weight: 600; z-index: 300; opacity: 0; transition: all .3s; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -227,6 +237,14 @@
       </div>
     </div>
 
+    <div id="page-info" class="page">
+      <div class="card">
+        <div style="font-weight:800;font-size:1rem;margin-bottom:4px">Info Pengecekan Data</div>
+        <div style="font-size:.76rem;color:var(--muted);margin-bottom:12px">Hasil cek otomatis saat data dimuat. Hanya menampilkan No Faktur.</div>
+        <div id="cekData"><div style="padding:18px;text-align:center;color:var(--muted);font-size:.85rem">Muat data dulu di Home</div></div>
+      </div>
+    </div>
+
     <div id="page-list" class="page">
       <div class="card">
         <input type="text" class="search-box" id="searchInput" placeholder="Cari No Faktur / nama..." oninput="renderList()" />
@@ -253,6 +271,9 @@
     </button>
     <button class="nav-item" data-page="scan" onclick="showPage('scan')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M4 12h16"/></svg>Scan
+    </button>
+    <button class="nav-item" data-page="info" onclick="showPage('info')" style="position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Info<span id="infoBadge" class="nav-badge hidden">0</span>
     </button>
     <button class="nav-item" data-page="list" onclick="showPage('list')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>List
@@ -383,6 +404,49 @@
       }
     }
 
+    // ===== Cek data saat import: packaging vs kelengkapan, kamera tanpa charger (hanya tampilkan No Faktur) =====
+    function cekData() {
+      const strip = (t, re) => String(t || '').toLowerCase().replace(re, ' ');
+      const r = { dusTanpaKardus: [], tanpaDusAdaKardus: [], kameraTanpaCharger: [] };
+      items.forEach(i => {
+        const pkg = String(i.packaging || '').toLowerCase();
+        const klp = String(i.kelengkapan || '').toLowerCase();
+        const tanpaDus = /tanpa\s*(k?ardus|dus)/.test(pkg);
+        const dus = !tanpaDus && /dus/.test(pkg);
+        const adaKardus = /dus/.test(strip(klp, /tanpa\s*(k?ardus|dus)/g));
+        if (dus && !adaKardus) r.dusTanpaKardus.push(i.noFaktur);
+        if (tanpaDus && adaKardus) r.tanpaDusAdaKardus.push(i.noFaktur);
+        if (/kamera|camera/i.test(i.jenis || '')) {
+          const adaCharger = /charger/.test(strip(klp, /tanpa\s*charger/g));
+          const spekTanpa = /tanpa\s*charger/i.test(i.spek || '');
+          if (!adaCharger && !spekTanpa) r.kameraTanpaCharger.push(i.noFaktur);
+        }
+      });
+      return r;
+    }
+
+    function renderCekData(headers) {
+      const el = document.getElementById('cekData');
+      if (!el) return;
+      const r = cekData();
+      const groups = [
+        ['Packaging DUS, tapi kelengkapan tidak ada kardus', r.dusTanpaKardus],
+        ['Packaging TANPA DUS, tapi kelengkapan ada kardus', r.tanpaDusAdaKardus],
+        ['Kamera: tanpa charger di kelengkapan & tidak ada "tanpa charger" di spesifikasi', r.kameraTanpaCharger],
+      ];
+      const total = groups.reduce((n, g) => n + g[1].length, 0);
+      const bd = document.getElementById('infoBadge');
+      if (bd) { bd.textContent = total; bd.classList.toggle('hidden', !total); }
+      const missing = headers && (!headers.packaging || !headers.kelengkapan)
+        ? `<div class="cek-note">⚠ Kolom ${[!headers.packaging ? '"Packaging"' : '', !headers.kelengkapan ? '"Kelengkapan"' : ''].filter(Boolean).join(' & ')} tidak ditemukan di baris header, pengecekan terkait dilewati.</div>` : '';
+      if (!total) {
+        el.innerHTML = `<div class="cek-card ok"><div class="cek-h">✅ Data lolos pengecekan kelengkapan</div>${missing}</div>`;
+        return;
+      }
+      el.innerHTML = `<div class="cek-card"><div class="cek-h">⚠ ${total} No Faktur perlu dicek</div>` + groups.filter(g => g[1].length).map(g =>
+        `<details><summary><span>${esc(g[0])}</span><b>${g[1].length}</b></summary><div class="cek-nf">${g[1].map(esc).join('<br>')}</div></details>`).join('') + missing + '</div>';
+    }
+
     async function loadData() {
       const btnRefresh = document.getElementById('btnRefresh');
       const originalText = btnRefresh ? btnRefresh.innerHTML : '🔄 Refresh';
@@ -405,6 +469,7 @@
         document.getElementById('statsSection').classList.remove('hidden');
         document.getElementById('headerSub').textContent = items.length + ' barang • Sinkron';
         renderList();
+        renderCekData(data.headers);
         toast('Data berhasil dimuat (' + items.length + ')', 'success');
       } catch (e) {
         toast('Gagal load data: ' + e.message, 'error');
