@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Stock Scan - No Faktur</title>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <style>
     :root {
       --primary: #2563eb;
@@ -93,20 +93,24 @@
     .btn-sm { padding: 7px 12px; font-size: 0.8rem; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* Tampilan kamera kecil di layar, tapi area baca internal 640px supaya hasil decode tajam */
-    #readerWrap {
-      width: 100%;
-      max-width: min(340px, 40vh);
-      margin: 0 auto 12px;
-      border-radius: 12px;
-      overflow: hidden;
-      background: #000;
+    /* Kamera: video langsung (tanpa html5-qrcode) + status + kedip warna */
+    #camWrap {
+      position: relative; width: 100%; max-width: 420px; aspect-ratio: 4/3;
+      margin: 0 auto 12px; border-radius: 12px; overflow: hidden; background: #000;
     }
-    #reader {
-      width: 640px;
-      transform-origin: 0 0;
-      background: #000;
-    }
+    #cam { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .aim { position: absolute; inset: 22% 8%; border: 2px dashed rgba(255,255,255,.75); border-radius: 8px; pointer-events: none; }
+    #camFlash { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .3s; }
+    #camFlash.show { opacity: .55; transition: none; }
+    .cam-status { position: absolute; left: 0; right: 0; bottom: 0; padding: 7px 8px; font-size: .8rem; font-weight: 700; text-align: center; color: #fff; background: rgba(15,23,42,.8); }
+    .cam-status.ok { background: rgba(22,163,74,.95); }
+    .cam-status.warn { background: rgba(217,119,6,.95); }
+    .cam-status.err { background: rgba(220,38,38,.95); }
+    #scanLog { margin-top: 10px; }
+    .log-row { display: flex; justify-content: space-between; gap: 8px; font-size: .75rem; padding: 5px 8px; border-radius: 6px; margin-bottom: 3px; background: #f8fafc; }
+    .log-row.turun, .log-row.nf, .log-row.err { background: #fef2f2; color: var(--danger); font-weight: 600; }
+    .log-row.dup { background: #fffbeb; }
+    .log-row span:first-child { font-family: monospace; }
 
     .manual-input {
       display: flex;
@@ -392,7 +396,7 @@
 
     <div id="page-scan" class="page">
       <div class="card">
-        <div id="readerWrap"><div id="reader"></div></div>
+        <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input">
@@ -400,6 +404,7 @@
           <button class="btn btn-primary" onclick="doScan(document.getElementById('manualBarcode').value)">Cari</button>
         </div>
         <div id="scanResult"></div>
+        <div id="scanLog"></div>
       </div>
     </div>
 
@@ -435,29 +440,36 @@
     let BACKEND_URL = localStorage.getItem('stockScan_backend') || '';
     let items = [];
     let currentFilter = 'all';
-    let html5QrCode = null;
-    let isScanning = false;
-    let lastScanned = '';
-    let lastScanTime = 0;
+    let stream = null, videoEl = null, detector = null, zxReader = null, zxCanvas = null;
+    let isScanning = false, camBusy = false, loopTimer = null;
+    let lastScanned = '', lastScanTime = 0, lastDecodeAt = 0;
+    let camHoldUntil = 0, camStatusKey = '';
+    const scanLogs = [];
+    const IDLE_OK = 'Arahkan ke barcode / QR';
+    const IDLE_WARN = '⚠ Belum terbaca — dekatkan, tahan stabil, cukup cahaya';
 
-    // Watchdog: cek tiap 2 detik, kamera mati -> hidupkan lagi otomatis
+    // Watchdog: kamera mati/pause -> hidupkan lagi otomatis
     setInterval(() => {
-      if (!isScanning) return;
-      const v = document.querySelector('#reader video');
-      if (!v) return;
-      const track = v.srcObject && v.srcObject.getVideoTracks ? v.srcObject.getVideoTracks()[0] : null;
-      if (track && track.readyState === 'ended') { stopScan().then(startScan); return; }
-      if (v.paused) v.play().catch(() => {});
+      if (!isScanning || !stream) return;
+      const tr = stream.getVideoTracks()[0];
+      if (!tr || tr.readyState === 'ended') { stopScan().then(startScan); return; }
+      if (videoEl && videoEl.paused) videoEl.play().catch(() => {});
     }, 2000);
 
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) setTimeout(keepCameraAlive, 300);
+      if (document.hidden) return;
+      if (!document.getElementById('page-scan').classList.contains('active')) return;
+      setTimeout(() => { if (!isScanning) startScan(); else keepCameraAlive(); }, 300);
     });
+
+    // Sentuhan pertama: aktifkan suara (browser blok audio sebelum ada sentuhan)
+    document.addEventListener('pointerdown', () => { getCtx(); warmSpeech(); }, { once: true });
 
     document.addEventListener('DOMContentLoaded', () => {
       if (BACKEND_URL) {
         document.getElementById('backendUrl').value = BACKEND_URL;
         checkConnection();
+        showPage('scan');   // langsung buka kamera, bukan daftar item
       }
       document.getElementById('manualBarcode').addEventListener('keydown', e => {
         if (e.key === 'Enter') doScan(e.target.value);
@@ -596,29 +608,27 @@
       if (syncing) return;
       syncing = true;
       while (syncQueue.length) {
-        const job = syncQueue[0];
+        const batch = syncQueue.splice(0, 25);   // kirim banyak sekaligus = jauh lebih cepat
         try {
-          const data = await api('scan', { nf: job.code });
-          syncQueue.shift();
-          const it = itemIndex.get(job.code.toUpperCase());
-          if (!data.found) {
-            if (it) it.mark = 0;
-            toast('Server tidak menemukan ' + job.code, 'error');
-          } else if (data.wajibTurun && it && !it.wajibTurun) {
-            // server lebih tahu: ternyata barang ini WAJIB TURUN
-            it.wajibTurun = true;
-            playTurunSound();
-            renderResult(it, false);
-            refreshStats();
-          }
+          const data = await api('markbatch', { nf: batch.map(j => j.code).join(',') });
+          if (!data.ok) throw new Error(data.error || 'gagal');
+          (data.results || []).forEach(r => {
+            const it = itemIndex.get(cleanBarcode(r.nf).toUpperCase());
+            if (!r.found) {
+              if (it) it.mark = 0;
+              toast('Server tidak menemukan ' + r.nf, 'error');
+            } else if (r.wajibTurun && it && !it.wajibTurun) {
+              it.wajibTurun = true;
+              playTurunSound();
+              renderResult(it, false);
+              refreshStats();
+            }
+          });
         } catch (e) {
-          job.tries++;
-          if (job.tries >= 5) {
-            syncQueue.shift();
-            failedJobs.push(job);
-          } else {
-            await sleep(1200 * job.tries);
-          }
+          const back = [];
+          batch.forEach(j => { j.tries++; (j.tries >= 5 ? failedJobs : back).push(j); });
+          syncQueue.unshift(...back);
+          await sleep(1200);
         }
         updateSyncStatus();
       }
@@ -665,82 +675,117 @@
     }
 
     function afterScanUi() {
-      setTimeout(() => {
-        const input = document.getElementById('manualBarcode');
-        input.value = '';
-        if (!isScanning) input.focus();   // jangan buka keyboard saat kamera aktif
-        keepCameraAlive();
-      }, 400);
+      const input = document.getElementById('manualBarcode');
+      input.value = '';
+      if (!isScanning) input.focus();   // jangan buka keyboard saat kamera aktif
+    }
+
+    function addLog(code, type, label) {
+      scanLogs.unshift({ code, type, label, t: new Date().toLocaleTimeString('id-ID') });
+      if (scanLogs.length > 8) scanLogs.length = 8;
+      const icon = { ok: '✅', dup: '🔁', turun: '⬇️', nf: '❌', err: '⚠️' };
+      document.getElementById('scanLog').innerHTML = scanLogs.map(l =>
+        `<div class="log-row ${l.type}"><span>${icon[l.type] || ''} ${esc(l.code)}</span><span>${esc(l.label)} · ${esc(l.t)}</span></div>`).join('');
+    }
+
+    function setCamStatus(text, type, holdMs) {
+      const el = document.getElementById('camStatus');
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'cam-status ' + (type || '');
+      camStatusKey = text;
+      camHoldUntil = holdMs ? Date.now() + holdMs : 0;
+    }
+
+    function idleStatus() {
+      if (Date.now() < camHoldUntil) return;
+      if (Date.now() - lastDecodeAt > 3000) { if (camStatusKey !== IDLE_WARN) setCamStatus(IDLE_WARN, 'warn'); }
+      else if (camStatusKey !== IDLE_OK) setCamStatus(IDLE_OK, '');
+    }
+
+    function flash(color, ms) {
+      const f = document.getElementById('camFlash');
+      f.style.background = color;
+      f.classList.add('show');
+      clearTimeout(f._t);
+      f._t = setTimeout(() => f.classList.remove('show'), ms);
+    }
+
+    // Satu pintu untuk semua bunyi + tanda: "tit" langsung, WAJIB TURUN = "tit" + suara "Turun"
+    function signalScan(type) {
+      if (type === 'turun') {
+        beepScan(1); playTurunSound();
+        flash('#dc2626', 900); setCamStatus('⬇️ WAJIB TURUN!', 'err', 2000);
+      } else if (type === 'dup') {
+        beepScan(2); flash('#d97706', 300); setCamStatus('🔁 Sudah di-mark', 'warn', 1200);
+      } else if (type === 'ok') {
+        beepScan(1); flash('#16a34a', 250); setCamStatus('✅ Berhasil', 'ok', 1000);
+      } else if (type === 'nf') {
+        beep(false); flash('#dc2626', 400); setCamStatus('❌ Terbaca, tapi TIDAK ADA di data', 'err', 2200);
+      } else {
+        beep(false); flash('#dc2626', 400); setCamStatus('⚠ Error koneksi/server (bukan salah baca)', 'err', 2500);
+      }
     }
 
     async function doScan(code) {
       code = cleanBarcode(code);
       if (!code) return;
-
-      document.getElementById('manualBarcode').value = code;
       const resultEl = document.getElementById('scanResult');
 
-      // ---- Jalur cepat: barang ada di data lokal -> hasil + bunyi seketika ----
+      // ---- Jalur cepat: data lokal (wajibTurun juga sudah ikut dari server) -> seketika ----
       const item = itemIndex.get(code.toUpperCase());
       if (item) {
-        const alreadyMarked = item.mark === 1;
-        if (!alreadyMarked) {
-          item.mark = 1;
-          queueSync(item.noFaktur);
-        }
-        if (item.wajibTurun) playTurunSound();
-        else beepScan(alreadyMarked ? 2 : 1);   // tit / tit-tit kalau sudah pernah
-        renderResult(item, alreadyMarked);
+        const already = item.mark === 1;
+        if (!already) { item.mark = 1; queueSync(item.noFaktur); }
+        const type = item.wajibTurun ? 'turun' : (already ? 'dup' : 'ok');
+        signalScan(type);
+        addLog(code, type, item.wajibTurun ? 'WAJIB TURUN' : (already ? 'sudah' : 'ok'));
+        renderResult(item, already);
         refreshStats();
         afterScanUi();
         return;
       }
 
-      // ---- Tidak ada di lokal -> tanya server (data mungkin lebih baru) ----
+      // ---- Tidak ada di lokal -> tanya server ----
+      beepScan(1);
+      setCamStatus('Mencari ' + code + '...', '', 1500);
       resultEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted)">Mencari...</div>';
       try {
         const data = await api('scan', { nf: code });
-
         if (!data.found) {
+          signalScan('nf');
+          addLog(code, 'nf', 'tidak ada di data');
           resultEl.innerHTML = `
             <div class="result-box error">
               <div class="title">❌ Tidak Ditemukan</div>
               <div class="detail">No Faktur: <strong>${esc(code)}</strong></div>
+              <div class="detail">Kode terbaca normal, tapi tidak ada di sheet.</div>
             </div>`;
-          toast('Tidak ditemukan', 'error');
-          beep(false);
           afterScanUi();
           return;
         }
-
         const idx = items.findIndex(i => i.noFaktur === data.noFaktur);
-        if (idx >= 0) items[idx].mark = 1;
-
-        // WAJIB TURUN langsung notif turun (tanpa "tit"); selain itu baru "tit"
-        if (data.wajibTurun) playTurunSound();
-        else beepScan(data.alreadyMarked ? 2 : 1);
-
+        if (idx >= 0) { items[idx].mark = 1; items[idx].wajibTurun = !!data.wajibTurun; }
+        const type = data.wajibTurun ? 'turun' : (data.alreadyMarked ? 'dup' : 'ok');
+        signalScan(type);
+        addLog(code, type, data.wajibTurun ? 'WAJIB TURUN' : (data.alreadyMarked ? 'sudah' : 'ok'));
         renderResult(data, data.alreadyMarked);
         refreshStats();
         afterScanUi();
       } catch (e) {
-        resultEl.innerHTML = `<div class="result-box error"><div class="title">Error</div><div class="detail">${esc(e.message)}</div></div>`;
-        toast(e.message, 'error');
+        signalScan('err');
+        addLog(code, 'err', 'gagal kirim');
+        resultEl.innerHTML = `<div class="result-box error"><div class="title">⚠ Error Koneksi</div><div class="detail">${esc(e.message)}<br>Bukan salah baca — scan ulang / ketik manual.</div></div>`;
       }
     }
 
-    // Suara + getar langsung bareng saat hasil scan muncul (tanpa overlay)
     function playTurunSound() {
       speak('Turun');
-      alarmBeep();
       try { if (navigator.vibrate) navigator.vibrate([200, 80, 200]); } catch (e) {}
-      setTimeout(keepCameraAlive, 300);
     }
 
-    // Pulihkan video kamera kalau ter-pause (akibat audio/keyboard/overlay)
     function keepCameraAlive() {
-      const v = document.querySelector('#reader video');
-      if (isScanning && v && v.paused) v.play().catch(() => {});
+      if (isScanning && videoEl && videoEl.paused) videoEl.play().catch(() => {});
     }
 
     // Satu AudioContext saja, dipakai ulang (tidak dibuat/ditutup tiap scan)
@@ -754,13 +799,24 @@
     function speak(text) {
       try {
         if (!window.speechSynthesis) return;
-        window.speechSynthesis.cancel();
+        if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'id-ID';
-        u.rate = 1.0;
+        u.rate = 1.1;
         u.pitch = 1.15;
         u.volume = 1.0;
         window.speechSynthesis.speak(u);
+      } catch (e) {}
+    }
+
+    // Panaskan mesin suara supaya "Turun" tidak telat pada pemakaian pertama
+    function warmSpeech() {
+      try {
+        if (!window.speechSynthesis) return;
+        speechSynthesis.getVoices();
+        const u = new SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        speechSynthesis.speak(u);
       } catch (e) {}
     }
 
@@ -826,148 +882,153 @@
       } catch (e) {}
     }
 
-    // Skala tampilan kamera ke ukuran wrap (area baca internal tetap 640px)
-    function fitReader() {
-      const wrap = document.getElementById('readerWrap');
-      const r = document.getElementById('reader');
-      if (!wrap || !r) return;
-      const k = wrap.clientWidth / 640;
-      r.style.transform = 'scale(' + k + ')';
-      wrap.style.height = r.offsetHeight ? (r.offsetHeight * k) + 'px' : '0px';
+    // ================== SCANNER ==================
+    // Pakai pembaca bawaan HP (BarcodeDetector) kalau ada = sangat cepat; kalau tidak, ZXing.
+    async function initDetector() {
+      if (detector || zxReader) return;
+      if ('BarcodeDetector' in window) {
+        try {
+          const sup = await BarcodeDetector.getSupportedFormats();
+          const f = ['code_39', 'code_128', 'ean_13', 'itf', 'qr_code'].filter(x => sup.includes(x));
+          if (f.length) { detector = new BarcodeDetector({ formats: f }); return; }
+        } catch (e) {}
+      }
+      if (window.ZXing) {
+        const F = ZXing.BarcodeFormat;
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.CODE_39, F.CODE_128, F.EAN_13, F.ITF, F.QR_CODE]);
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        zxReader = new ZXing.MultiFormatReader();
+        zxReader.setHints(hints);
+      }
     }
-    window.addEventListener('resize', fitReader);
-    document.addEventListener('DOMContentLoaded', () => {
-      const r = document.getElementById('reader');
-      if (r && window.ResizeObserver) new ResizeObserver(fitReader).observe(r);
-      fitReader();
-    });
+
+    function decodeZx(v) {
+      const w = Math.min(v.videoWidth, 960), h = Math.round(v.videoHeight * w / v.videoWidth);
+      if (!zxCanvas) zxCanvas = document.createElement('canvas');
+      zxCanvas.width = w; zxCanvas.height = h;
+      zxCanvas.getContext('2d', { willReadFrequently: true }).drawImage(v, 0, 0, w, h);
+      try {
+        const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(zxCanvas)));
+        return zxReader.decodeWithState(bmp).getText();
+      } catch (e) { return null; }
+    }
+
+    // Coba resolusi tinggi dulu, kalau gagal turun bertahap sampai kamera pasti terbuka
+    async function openStream() {
+      const tries = [
+        { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+        { video: { facingMode: 'environment' }, audio: false },
+        { video: true, audio: false }
+      ];
+      let lastErr;
+      for (const c of tries) {
+        try { return await navigator.mediaDevices.getUserMedia(c); }
+        catch (e) { lastErr = e; if (e.name === 'NotAllowedError' || e.name === 'SecurityError') break; }
+      }
+      throw lastErr;
+    }
+
+    function setBtn(on, busyText) {
+      const btn = document.getElementById('btnStartScan');
+      btn.disabled = !!busyText;
+      btn.textContent = busyText || (on ? '⏹ Stop Kamera' : 'Mulai Kamera');
+      btn.classList.toggle('btn-danger', !!on && !busyText);
+      btn.classList.toggle('btn-primary', !on || !!busyText);
+    }
+
+    function camErrorText(e) {
+      const n = e && e.name;
+      if (n === 'NotAllowedError' || n === 'SecurityError') return 'Izin kamera ditolak — aktifkan di pengaturan browser';
+      if (n === 'NotFoundError') return 'Kamera tidak ditemukan';
+      if (n === 'NotReadableError') return 'Kamera dipakai aplikasi lain — tutup dulu';
+      return (e && e.message) || 'Kamera gagal dibuka';
+    }
 
     async function toggleScan() {
       if (isScanning) stopScan();
-      else { window.__camRetried = false; startScan(); }   // tap manual = boleh retry otomatis lagi
+      else { window.__camRetried = false; startScan(); }
     }
 
     async function startScan() {
-      getCtx();   // aktifkan audio dari tap user supaya bunyi tidak telat
-      fitReader();
-      if (!BACKEND_URL) {
-        toast('Isi URL backend dulu di Home', 'error');
-        return;
-      }
-
-      const btn = document.getElementById('btnStartScan');
-      btn.disabled = true;
-      btn.textContent = 'Membuka kamera...';
-
+      if (isScanning || camBusy) return;
+      getCtx(); warmSpeech();
+      if (!BACKEND_URL) { toast('Isi URL backend dulu di Home', 'error'); return; }
+      camBusy = true;
+      setBtn(false, 'Membuka kamera...');
+      setCamStatus('Membuka kamera...', '');
       try {
-        // Bersihkan instance lama kalau masih ada
-        if (html5QrCode) {
-          try {
-            if (isScanning) await html5QrCode.stop();
-            html5QrCode.clear();
-          } catch (e) {}
-          html5QrCode = null;
-        }
-
-        // Kosongkan elemen reader biar bersih
-        const readerEl = document.getElementById('reader');
-        readerEl.innerHTML = '';
-
-        html5QrCode = new Html5Qrcode('reader', {
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.ITF,
-            Html5QrcodeSupportedFormats.QR_CODE
-          ],
-          useBarCodeDetectorIfSupported: true,   // pakai decoder bawaan HP kalau ada (jauh lebih cepat)
-          verbose: false
-        });
-
-        const scanCfg = {
-          fps: 15,
-          // kotak baca lebar untuk barcode 1D
-          qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.floor(Math.min(h * 0.55, w * 0.9)) }),
-          aspectRatio: 1.333,
-          disableFlip: true   // tidak perlu scan ulang versi mirror -> 2x lebih ringan
-        };
-
-        const onDecode = (decoded) => {
-          const c = cleanBarcode(decoded);
-          if (!c) return;
-          const now = Date.now();
-          // kode yang sama ditahan 1.2 detik, beda kode langsung diproses
-          if (c === lastScanned && now - lastScanTime < 1200) return;
-          lastScanned = c;
-          lastScanTime = now;
-          doScan(c);
-        };
-
-        // Start polos (tanpa constraint resolusi/fokus) supaya kamera pasti menyala terang
-        await html5QrCode.start({ facingMode: 'environment' }, scanCfg, onDecode, () => {});
-
-        fitReader();
-
-        // Setelah kamera hidup, minta fokus otomatis terus-menerus (kalau HP support; kalau tidak, diabaikan)
-        try {
-          const vtrack = document.querySelector('#reader video').srcObject.getVideoTracks()[0];
-          vtrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
-        } catch (e) {}
-
-        // Kalau 2 detik kemudian belum ada gambar sama sekali, buka ulang kamera sekali
-        if (!window.__camRetried) {
-          setTimeout(() => {
-            const v = document.querySelector('#reader video');
-            if (isScanning && (!v || v.videoWidth === 0 || v.readyState < 2)) {
-              window.__camRetried = true;
-              stopScan().then(startScan);
-            }
-          }, 2000);
-        }
-
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Kamera butuh HTTPS — buka lewat link https');
+        await initDetector();
+        if (!detector && !zxReader) throw new Error('Pembaca barcode gagal dimuat — cek internet lalu refresh');
+        stream = await openStream();
+        videoEl = document.getElementById('cam');
+        videoEl.srcObject = stream;
+        await videoEl.play();
+        try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
         isScanning = true;
-        btn.disabled = false;
-        btn.textContent = '⏹ Stop Kamera';
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-danger');
+        lastDecodeAt = Date.now();
+        setBtn(true);
+        setCamStatus(IDLE_OK, '');
+        scanLoop();
+        // Kalau 2.5 detik belum ada gambar, buka ulang sekali
+        setTimeout(() => {
+          if (isScanning && videoEl && !videoEl.videoWidth && !window.__camRetried) {
+            window.__camRetried = true;
+            stopScan().then(startScan);
+          }
+        }, 2500);
       } catch (err) {
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         isScanning = false;
-        btn.disabled = false;
-        btn.textContent = 'Mulai Kamera';
-        btn.classList.remove('btn-danger');
-        btn.classList.add('btn-primary');
-        toast('Gagal buka kamera: ' + (err.message || err), 'error');
+        setBtn(false);
+        setCamStatus('❌ ' + camErrorText(err), 'err');
+        toast(camErrorText(err), 'error');
+      } finally {
+        camBusy = false;
       }
     }
 
-    async function stopScan() {
-      const btn = document.getElementById('btnStartScan');
-      btn.disabled = true;
-      btn.textContent = 'Menutup kamera...';
-
-      try {
-        if (html5QrCode) {
-          if (isScanning) {
-            await html5QrCode.stop();
+    async function scanLoop() {
+      if (!isScanning) return;
+      const v = videoEl;
+      if (v && v.readyState >= 2 && v.videoWidth) {
+        try {
+          let code = null, seenButEmpty = false;
+          if (detector) {
+            const r = await detector.detect(v);
+            const hit = r.find(x => x.rawValue);
+            if (hit) code = hit.rawValue; else if (r.length) seenButEmpty = true;
+          } else {
+            code = decodeZx(v);
           }
-          html5QrCode.clear();
-          html5QrCode = null;
-        }
-      } catch (e) {
-        // ignore error saat stop
+          if (code) handleDecoded(code);
+          else if (seenButEmpty) setCamStatus('⚠ Kode terdeteksi tapi isinya tidak terbaca — dekatkan / tahan stabil', 'warn', 800);
+          else idleStatus();
+        } catch (e) {}
       }
+      if (isScanning) loopTimer = setTimeout(scanLoop, detector ? 30 : 60);
+    }
 
-      // Pastikan elemen reader bersih
-      const readerEl = document.getElementById('reader');
-      if (readerEl) readerEl.innerHTML = '';
-      fitReader();
+    function handleDecoded(raw) {
+      const c = cleanBarcode(raw);
+      if (!c) { setCamStatus('⚠ Kode terbaca tapi kosong', 'warn', 800); return; }
+      const now = Date.now();
+      lastDecodeAt = now;
+      // kode yang sama ditahan 2 detik (anti dobel), kode beda langsung diproses
+      if (c === lastScanned && now - lastScanTime < 2000) return;
+      lastScanned = c;
+      lastScanTime = now;
+      doScan(c);
+    }
 
+    async function stopScan() {
       isScanning = false;
-      btn.disabled = false;
-      btn.textContent = 'Mulai Kamera';
-      btn.classList.remove('btn-danger');
-      btn.classList.add('btn-primary');
+      clearTimeout(loopTimer);
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      if (videoEl) videoEl.srcObject = null;
+      setBtn(false);
+      setCamStatus('Kamera mati', '');
     }
 
     function setFilter(f) {
@@ -1036,7 +1097,7 @@
       });
       if (page !== 'scan' && isScanning) stopScan();
       if (page === 'list') renderList();
-      if (page === 'scan') setTimeout(fitReader, 50);
+      if (page === 'scan') startScan();   // kamera otomatis nyala
     }
 
     function esc(str) {
