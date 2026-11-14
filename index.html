@@ -440,6 +440,20 @@
     let lastScanned = '';
     let lastScanTime = 0;
 
+    // Watchdog: cek tiap 2 detik, kamera mati -> hidupkan lagi otomatis
+    setInterval(() => {
+      if (!isScanning) return;
+      const v = document.querySelector('#reader video');
+      if (!v) return;
+      const track = v.srcObject && v.srcObject.getVideoTracks ? v.srcObject.getVideoTracks()[0] : null;
+      if (track && track.readyState === 'ended') { stopScan().then(startScan); return; }
+      if (v.paused) v.play().catch(() => {});
+    }, 2000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) setTimeout(keepCameraAlive, 300);
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       if (BACKEND_URL) {
         document.getElementById('backendUrl').value = BACKEND_URL;
@@ -587,8 +601,10 @@
         });
 
         setTimeout(() => {
-          document.getElementById('manualBarcode').value = '';
-          document.getElementById('manualBarcode').focus();
+          const input = document.getElementById('manualBarcode');
+          input.value = '';
+          if (!isScanning) input.focus();   // jangan buka keyboard saat kamera aktif
+          keepCameraAlive();
         }, 600);
 
       } catch (e) {
@@ -622,6 +638,21 @@
 
     function closeAlert() {
       document.getElementById('alertOverlay').classList.remove('show');
+      setTimeout(keepCameraAlive, 300);
+    }
+
+    // Pulihkan video kamera kalau ter-pause (akibat audio/keyboard/overlay)
+    function keepCameraAlive() {
+      const v = document.querySelector('#reader video');
+      if (isScanning && v && v.paused) v.play().catch(() => {});
+    }
+
+    // Satu AudioContext saja, dipakai ulang (tidak dibuat/ditutup tiap scan)
+    let audioCtx = null;
+    function getCtx() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
     }
 
     function speak(text) {
@@ -639,7 +670,7 @@
 
     function beep(success) {
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = getCtx();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -647,13 +678,13 @@
         osc.frequency.value = success ? 880 : 300;
         gain.gain.value = 0.2;
         osc.start();
-        setTimeout(() => { osc.stop(); ctx.close(); }, success ? 130 : 280);
+        setTimeout(() => { try { osc.stop(); } catch(e){} }, success ? 130 : 280);
       } catch (e) {}
     }
 
     function alarmBeep() {
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = getCtx();
         let t = ctx.currentTime;
         // Bunyi alarm lebih panjang & keras
         for (let i = 0; i < 6; i++) {
@@ -669,7 +700,6 @@
           osc.stop(t + 0.22);
           t += 0.25;
         }
-        setTimeout(() => ctx.close(), 2000);
       } catch (e) {}
     }
 
