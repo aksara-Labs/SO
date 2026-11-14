@@ -93,14 +93,18 @@
     .btn-sm { padding: 7px 12px; font-size: 0.8rem; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    #reader {
+    /* Tampilan kamera kecil di layar, tapi area baca internal 640px supaya hasil decode tajam */
+    #readerWrap {
       width: 100%;
-      max-width: min(340px, 36vh);   /* tinggi kamera dibatasi, hasil scan di bawah tetap kelihatan */
-      margin-left: auto;
-      margin-right: auto;
+      max-width: min(340px, 40vh);
+      margin: 0 auto 12px;
       border-radius: 12px;
       overflow: hidden;
-      margin-bottom: 12px;
+      background: #000;
+    }
+    #reader {
+      width: 640px;
+      transform-origin: 0 0;
       background: #000;
     }
 
@@ -388,7 +392,7 @@
 
     <div id="page-scan" class="page">
       <div class="card">
-        <div id="reader"></div>
+        <div id="readerWrap"><div id="reader"></div></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input">
@@ -693,7 +697,6 @@
       }
 
       // ---- Tidak ada di lokal -> tanya server (data mungkin lebih baru) ----
-      beepScan(1);
       resultEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted)">Mencari...</div>';
       try {
         const data = await api('scan', { nf: code });
@@ -713,8 +716,9 @@
         const idx = items.findIndex(i => i.noFaktur === data.noFaktur);
         if (idx >= 0) items[idx].mark = 1;
 
+        // WAJIB TURUN langsung notif turun (tanpa "tit"); selain itu baru "tit"
         if (data.wajibTurun) playTurunSound();
-        else if (data.alreadyMarked) beepScan(2);
+        else beepScan(data.alreadyMarked ? 2 : 1);
 
         renderResult(data, data.alreadyMarked);
         refreshStats();
@@ -822,13 +826,30 @@
       } catch (e) {}
     }
 
+    // Skala tampilan kamera ke ukuran wrap (area baca internal tetap 640px)
+    function fitReader() {
+      const wrap = document.getElementById('readerWrap');
+      const r = document.getElementById('reader');
+      if (!wrap || !r) return;
+      const k = wrap.clientWidth / 640;
+      r.style.transform = 'scale(' + k + ')';
+      wrap.style.height = r.offsetHeight ? (r.offsetHeight * k) + 'px' : '0px';
+    }
+    window.addEventListener('resize', fitReader);
+    document.addEventListener('DOMContentLoaded', () => {
+      const r = document.getElementById('reader');
+      if (r && window.ResizeObserver) new ResizeObserver(fitReader).observe(r);
+      fitReader();
+    });
+
     async function toggleScan() {
       if (isScanning) stopScan();
-      else startScan();
+      else { window.__camRetried = false; startScan(); }   // tap manual = boleh retry otomatis lagi
     }
 
     async function startScan() {
       getCtx();   // aktifkan audio dari tap user supaya bunyi tidak telat
+      fitReader();
       if (!BACKEND_URL) {
         toast('Isi URL backend dulu di Home', 'error');
         return;
@@ -865,9 +886,10 @@
         });
 
         const scanCfg = {
-          fps: 25,
+          fps: 15,
           // kotak baca lebar untuk barcode 1D
           qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.floor(Math.min(h * 0.55, w * 0.9)) }),
+          aspectRatio: 1.333,
           disableFlip: true   // tidak perlu scan ulang versi mirror -> 2x lebih ringan
         };
 
@@ -882,23 +904,26 @@
           doScan(c);
         };
 
+        // Start polos (tanpa constraint resolusi/fokus) supaya kamera pasti menyala terang
+        await html5QrCode.start({ facingMode: 'environment' }, scanCfg, onDecode, () => {});
+
+        fitReader();
+
+        // Setelah kamera hidup, minta fokus otomatis terus-menerus (kalau HP support; kalau tidak, diabaikan)
         try {
-          await html5QrCode.start(
-            { facingMode: 'environment' },
-            Object.assign({}, scanCfg, {
-              videoConstraints: {
-                facingMode: 'environment',
-                width: { ideal: 1024 },
-                height: { ideal: 768 },
-                advanced: [{ focusMode: 'continuous' }]
-              }
-            }),
-            onDecode,
-            () => {}
-          );
-        } catch (e1) {
-          // fallback: pengaturan standar kalau HP tidak support constraint di atas
-          await html5QrCode.start({ facingMode: 'environment' }, scanCfg, onDecode, () => {});
+          const vtrack = document.querySelector('#reader video').srcObject.getVideoTracks()[0];
+          vtrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+        } catch (e) {}
+
+        // Kalau 2 detik kemudian belum ada gambar sama sekali, buka ulang kamera sekali
+        if (!window.__camRetried) {
+          setTimeout(() => {
+            const v = document.querySelector('#reader video');
+            if (isScanning && (!v || v.videoWidth === 0 || v.readyState < 2)) {
+              window.__camRetried = true;
+              stopScan().then(startScan);
+            }
+          }, 2000);
         }
 
         isScanning = true;
@@ -936,6 +961,7 @@
       // Pastikan elemen reader bersih
       const readerEl = document.getElementById('reader');
       if (readerEl) readerEl.innerHTML = '';
+      fitReader();
 
       isScanning = false;
       btn.disabled = false;
@@ -1010,6 +1036,7 @@
       });
       if (page !== 'scan' && isScanning) stopScan();
       if (page === 'list') renderList();
+      if (page === 'scan') setTimeout(fitReader, 50);
     }
 
     function esc(str) {
