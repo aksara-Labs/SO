@@ -106,6 +106,7 @@
     .cam-status.ok { background: rgba(22,163,74,.95); }
     .cam-status.warn { background: rgba(217,119,6,.95); }
     .cam-status.err { background: rgba(220,38,38,.95); }
+    .torch { position: absolute; top: 8px; right: 8px; z-index: 5; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.2rem; background: rgba(15,23,42,.65); color: #fff; }
     #scanLog { margin-top: 10px; }
     .log-row { display: flex; justify-content: space-between; gap: 8px; font-size: .75rem; padding: 5px 8px; border-radius: 6px; margin-bottom: 3px; background: #f8fafc; }
     .log-row.turun, .log-row.nf, .log-row.err { background: #fef2f2; color: var(--danger); font-weight: 600; }
@@ -396,7 +397,7 @@
 
     <div id="page-scan" class="page">
       <div class="card">
-        <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
+        <div id="camWrap"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()">🔦</button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input">
@@ -440,7 +441,7 @@
     let BACKEND_URL = localStorage.getItem('stockScan_backend') || '';
     let items = [];
     let currentFilter = 'all';
-    let stream = null, videoEl = null, detector = null, zxReader = null, zxCanvas = null;
+    let stream = null, videoEl = null, detector = null, zxReader = null, zxHard = null, zxCanvas = null, zxN = 0, loopGen = 0, torchOn = false;
     let isScanning = false, camBusy = false, loopTimer = null;
     let lastScanned = '', lastScanTime = 0, lastDecodeAt = 0;
     let camHoldUntil = 0, camStatusKey = '';
@@ -907,28 +908,33 @@
       if ('BarcodeDetector' in window) {
         try {
           const sup = await BarcodeDetector.getSupportedFormats();
-          const f = ['code_39', 'code_128', 'ean_13', 'itf', 'qr_code'].filter(x => sup.includes(x));
+          const f = ['code_39', 'code_93', 'code_128', 'codabar', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'qr_code', 'data_matrix'].filter(x => sup.includes(x));
           if (f.length) { detector = new BarcodeDetector({ formats: f }); return; }
         } catch (e) {}
       }
       if (window.ZXing) {
         const F = ZXing.BarcodeFormat;
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.CODE_39, F.CODE_128, F.EAN_13, F.ITF, F.QR_CODE]);
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        zxReader = new ZXing.MultiFormatReader();
-        zxReader.setHints(hints);
+        const mk = hard => {
+          const hints = new Map();
+          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.CODE_39, F.CODE_93, F.CODE_128, F.CODABAR, F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.ITF, F.QR_CODE, F.DATA_MATRIX]);
+          if (hard) hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+          const r = new ZXing.MultiFormatReader();
+          r.setHints(hints);
+          return r;
+        };
+        zxReader = mk(false);   // cepat (tiap frame)
+        zxHard = mk(true);      // teliti (tiap frame ke-3)
       }
     }
 
     function decodeZx(v) {
-      const w = Math.min(v.videoWidth, 960), h = Math.round(v.videoHeight * w / v.videoWidth);
+      const w = Math.min(v.videoWidth, 720), h = Math.round(v.videoHeight * w / v.videoWidth);
       if (!zxCanvas) zxCanvas = document.createElement('canvas');
       zxCanvas.width = w; zxCanvas.height = h;
       zxCanvas.getContext('2d', { willReadFrequently: true }).drawImage(v, 0, 0, w, h);
       try {
         const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(zxCanvas)));
-        return zxReader.decodeWithState(bmp).getText();
+        return ((++zxN % 3 === 0) ? zxHard : zxReader).decodeWithState(bmp).getText();
       } catch (e) { return null; }
     }
 
@@ -984,11 +990,15 @@
         videoEl.srcObject = stream;
         await videoEl.play();
         try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+        try {
+          const caps = stream.getVideoTracks()[0].getCapabilities ? stream.getVideoTracks()[0].getCapabilities() : {};
+          document.getElementById('btnTorch').classList.toggle('hidden', !caps.torch);
+        } catch (e) {}
         isScanning = true;
         lastDecodeAt = Date.now();
         setBtn(true);
         setCamStatus(IDLE_OK, '');
-        scanLoop();
+        scanLoop(++loopGen);
         // Kalau 2.5 detik belum ada gambar, buka ulang sekali
         setTimeout(() => {
           if (isScanning && videoEl && !videoEl.videoWidth && !window.__camRetried) {
@@ -1007,8 +1017,8 @@
       }
     }
 
-    async function scanLoop() {
-      if (!isScanning) return;
+    async function scanLoop(gen) {
+      if (!isScanning || gen !== loopGen) return;
       const v = videoEl;
       if (v && v.readyState >= 2 && v.videoWidth) {
         try {
@@ -1025,7 +1035,16 @@
           else idleStatus();
         } catch (e) {}
       }
-      if (isScanning) loopTimer = setTimeout(scanLoop, detector ? 30 : 60);
+      if (isScanning && gen === loopGen) {
+        if (v && v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => scanLoop(gen));
+        else loopTimer = setTimeout(() => scanLoop(gen), detector ? 10 : 30);
+      }
+    }
+
+    function toggleTorch() {
+      if (!stream) return;
+      torchOn = !torchOn;
+      stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => { torchOn = false; });
     }
 
     function handleDecoded(raw) {
@@ -1042,7 +1061,10 @@
 
     async function stopScan() {
       isScanning = false;
+      loopGen++;
       clearTimeout(loopTimer);
+      torchOn = false;
+      document.getElementById('btnTorch').classList.add('hidden');
       if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
       if (videoEl) videoEl.srcObject = null;
       setBtn(false);
