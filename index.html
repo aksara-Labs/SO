@@ -261,7 +261,7 @@
           <div class="detail" style="font-weight:700;color:var(--text);margin-top:6px">${esc(name)}</div>
           <div class="detail"><span class="tag k-GE">GE</span> NF: <b>${esc(it.noFaktur)}</b></div>
           <div class="detail">${it.rak ? 'Faktur tanggal <b>' + it.rak + '</b>, rak dipilih <b>' + rakSel + '</b>. Pindahkan ke rak ' + it.rak + '.' : 'Tanggal pada nomor faktur tidak terbaca.'}</div>
-          <div class="detail">Barang ini belum di-mark.</div>
+          <div class="detail">Barang tetap di-mark (Mark = 1), mohon dipindah ke rak yang benar.</div>
         </div>`;
     }
     let stream = null, videoEl = null, detector = null, zxReader = null, zxHard = null, zxCanvas = null, zxN = 0, loopGen = 0, torchOn = false;
@@ -665,9 +665,12 @@
         if (!wrong && rakSel && item.rakItem && item.ketSalah) { item.ketSalah = false; queueKet(item.noFaktur, ''); }
 
         if (wrong && !item.wajibTurun) {
+          // salah rak tetap di-mark (+1), lalu notif salah rak
+          if (item.mark !== 1) { item.mark = 1; queueSync(item.noFaktur); }
           signalScan('rak', rakMsg);
           addLog(code, 'rak', rakLog);
           renderRakWrong(item);
+          refreshStats();
           afterScanUi();
           return;
         }
