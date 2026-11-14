@@ -152,6 +152,9 @@
     .view-display .container { max-width: 980px; }
     .view-display .item-list { max-height: 68vh; }
     .view-display .nav { justify-content: center; } .view-display .nav-item { max-width: 160px; }
+    .remote-modal { position: fixed; inset: 0; z-index: 400; background: rgba(15,23,42,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .remote-inner { width: 100%; max-width: 460px; background: #fff; border-radius: 20px; padding: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+    .remote-inner .rm-title { font-weight: 800; font-size: .95rem; margin-bottom: 10px; }
     .rakwarn { margin-top: 10px; padding: 9px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 800; font-size: .85rem; }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: .88rem; font-weight: 600; z-index: 300; opacity: 0; transition: all .3s; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -293,6 +296,7 @@
     </button>
   </div>
 
+  <div class="remote-modal hidden" id="remoteModal"><div class="remote-inner" id="remoteBody"></div></div>
   <div class="toast" id="toast"></div>
 
   <script>
@@ -376,6 +380,54 @@
     })();
     document.body.classList.add('view-' + VIEW);
 
+    // ===== Konfirmasi bersama: HP scan -> kartu muncul di HP & laptop, siapa pun boleh menjawab =====
+    let pendChain = Promise.resolve(), pendAck = false, remoteNf = '', pollBusy = false;
+    function sendPend(nf) {
+      pendAck = false;
+      pendChain = pendChain.then(() => api('pend', { nf })).then(() => { pendAck = true; }).catch(() => {});
+    }
+    function unpend(nf) {
+      pendAck = false;
+      pendChain = pendChain.then(() => api('unpend', { nf })).catch(() => {});
+    }
+    function periksaBatal() {
+      const nf = pendingPeriksa && pendingPeriksa.noFaktur;
+      if (nf) unpend(nf);
+      if (VIEW === 'display') closeRemote(); else resumeScan();
+    }
+    function closeRemote() {
+      remoteNf = ''; pendingPeriksa = null;
+      document.getElementById('remoteModal').classList.add('hidden');
+      document.getElementById('remoteBody').innerHTML = '';
+    }
+    async function openRemote(nf) {
+      let it = itemIndex.get(cleanBarcode(nf).toUpperCase());
+      if (!it) { await loadData(true); it = itemIndex.get(cleanBarcode(nf).toUpperCase()); }
+      if (!it) return;
+      remoteNf = nf; pendingPeriksa = it;
+      document.getElementById('remoteBody').innerHTML = '<div class="rm-title">📱 Konfirmasi dari HP</div>' + periksaCardHtml(it);
+      document.getElementById('remoteModal').classList.remove('hidden');
+    }
+    async function pollPend() {
+      if (document.hidden || !BACKEND_URL || pollBusy) return;
+      const cur = pendingPeriksa;
+      if (VIEW === 'scanner' && !(cur && pendAck)) return;   // HP hanya cek saat menunggu konfirmasi
+      pollBusy = true;
+      try {
+        const d = await api('getpend');
+        const nf = d.pending ? d.pending.nf : '';
+        if (VIEW === 'display') {
+          if (nf && nf !== remoteNf) await openRemote(nf);
+          else if (!nf && remoteNf) { closeRemote(); loadData(true); }
+        } else if (pendingPeriksa === cur && cur && nf !== cur.noFaktur) {
+          toast('Sudah dikonfirmasi dari laptop', 'success');   // laptop menjawab duluan -> HP lanjut scan
+          setTimeout(() => loadData(true), 1500);
+          resumeScan();
+        }
+      } catch (e) {} finally { pollBusy = false; }
+    }
+    setInterval(pollPend, 2500);
+
     function toggleSettings() {   // khusus HP: gear = buka/tutup pengaturan
       const onScan = document.getElementById('page-scan').classList.contains('active');
       showPage(onScan ? 'home' : 'scan');
@@ -428,8 +480,8 @@
       try {
         const data = await api('ping');
         if (data.ok) {
-          status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 5 ? ' — ⚠ backend LAMA' : '');
-          if ((data.version || 0) < 5) toast('⚠ Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
+          status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 7 ? ' — ⚠ backend LAMA' : '');
+          if ((data.version || 0) < 7) toast('⚠ Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
           document.getElementById('headerSub').textContent = 'Backend siap';
           loadData();
         } else {
@@ -581,17 +633,16 @@
       }
     }
 
-    function showPeriksaCard(it) {
-      pendingPeriksa = it;
+    function periksaCardHtml(it) {
       const name = [it.jenis, it.merk, it.tipe].filter(Boolean).join(' • ') || 'Barang';
       const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span>` : '';
       const prev = it.periksa ? `<div class="pc-prev">Hasil sebelumnya: <b>${it.periksa === 'ok' ? 'Sesuai' : 'Tidak sesuai' + (it.periksaTxt ? ' — ' + esc(it.periksaTxt) : '')}</b></div>` : '';
-      document.getElementById('scanResult').innerHTML = `
+      return `
         <div class="pcard">
           <div class="pc-top"><span class="pc-lbl">Barang terbaca</span>${tag}</div>
           <div class="pc-name">${esc(name)}</div>
           <div class="pc-meta">NF <b>${esc(it.noFaktur)}</b>${it.imei ? ' · IMEI ' + esc(it.imei) : ''}</div>
-          ${(it.noModel || it.spek || it.kelengkapan) ? `<div class="pc-spec">${it.noModel ? `<div><span>No Model</span><b>${esc(it.noModel)}</b></div>` : ''}${it.spek ? `<div><span>Spesifikasi</span><b>${esc(it.spek)}</b></div>` : ''}${it.kelengkapan ? `<div><span>Kelengkapan</span><b>${esc(it.kelengkapan)}</b></div>` : ''}</div>` : ''}
+          <div class="pc-spec"><div><span>No Model</span><b>${esc(it.noModel || '-')}</b></div><div><span>Spesifikasi</span><b>${esc(it.spek || '-')}</b></div><div><span>Kelengkapan</span><b>${esc(it.kelengkapan || '-')}</b></div></div>
           ${prev}
           <div class="chk-actions" id="periksaActions">
             <button class="btn btn-success" onclick="periksaOk()">✅ Sesuai</button>
@@ -601,8 +652,14 @@
             <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." onkeydown="if(event.key==='Enter')periksaSave()" />
             <button class="btn btn-danger btn-block" onclick="periksaSave()">Simpan Tidak Sesuai</button>
           </div>
-          <button class="pc-skip" onclick="resumeScan()">Batal, scan barang lain</button>
+          <button class="pc-skip" onclick="periksaBatal()">${VIEW === 'display' ? 'Tutup' : 'Batal, scan barang lain'}</button>
         </div>`;
+    }
+
+    function showPeriksaCard(it) {
+      pendingPeriksa = it;
+      document.getElementById('scanResult').innerHTML = periksaCardHtml(it);
+      sendPend(it.noFaktur);   // beritahu perangkat lain (laptop) supaya kartu yang sama muncul
     }
 
     function showPeriksaDone() {
@@ -662,6 +719,13 @@
       beepScan(1);
       addLog(it.noFaktur, state === 'ok' ? 'ok' : 'bad', state === 'ok' ? 'periksa OK' : 'tidak sesuai');
       renderPeriksaList();
+      unpend(it.noFaktur);
+      if (VIEW === 'display') {   // dikonfirmasi dari laptop: cukup tutup kartu, HP otomatis lanjut scan
+        closeRemote();
+        toast(state === 'ok' ? '✅ Sesuai tersimpan' : '❌ Tidak sesuai tersimpan', state === 'ok' ? 'success' : 'warning');
+        setTimeout(() => loadData(true), 1500);
+        return;
+      }
       if (allPeriksaDone()) { showPeriksaDone(); return; }   // semua selesai: kamera tetap mati
       toast(state === 'ok' ? '✅ Sesuai tersimpan' : '❌ Tidak sesuai tersimpan', state === 'ok' ? 'success' : 'warning');
       resumeScan();           // lanjut: kamera terbuka lagi
