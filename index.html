@@ -576,6 +576,7 @@
   
     .torch.on { background: #facc15; color: #111827; }
       .torch.zoom { right: 60px; font-weight: 800; font-size: .85rem; color: #fff; }
+      .pcard .pc-spec.gg > div { grid-template-columns: 136px 1fr; }
   </style>
 </head>
 <body>
@@ -742,7 +743,15 @@
       info.textContent = 'Rak ' + rakSel + ' · ' + a.filter(i => i.mark === 1).length + '/' + a.length + ' sudah di-scan';
     }
     function renderRakWrong(it) {
-      const name = [it.jenis, it.merk, it.tipe].filter(Boolean).join(' • ') || 'Barang';
+      const isGG = String(it.kode || '').toUpperCase() === 'GG';
+      const name = (isGG ? [it.jenis, it.merk] : [it.jenis, it.merk, it.tipe]).filter(Boolean).join(' • ') || 'Barang';
+      // Khusus GG: kotak berisi Kelengkapan, Cap, Logo, Tipe Barang, Berat Kering Emas, Potongan Berat Emas (urut)
+      const spec = isGG
+        ? '<div class="pc-spec gg">' + [
+            ['Kelengkapan', it.kelengkapan], ['Cap', it.cap], ['Logo', it.logo],
+            ['Tipe Barang', it.tipe], ['Berat Kering Emas', it.beratKering], ['Potongan Berat Emas', it.potongan]
+          ].map(r => `<div><span>${r[0]}</span><b>${esc(r[1] || '-')}</b></div>`).join('') + '</div>'
+        : `<div class="pc-spec"><div><span>No Model</span><b>${esc(it.noModel || '-')}</b></div><div><span>Spesifikasi</span><b>${esc(it.spek || '-')}</b></div><div><span>Kelengkapan</span><b>${esc(it.kelengkapan || '-')}</b></div></div>`;
       document.getElementById('scanResult').innerHTML = `
         <div class="result-box error">
           <div class="res-top"><span class="res-nf">${esc(it.noFaktur)}</span><span class="tag k-GE">GE</span></div>
@@ -1077,8 +1086,8 @@
         <div class="pcard">
           <div class="pc-top"><span class="pc-nf">${esc(it.noFaktur)}</span>${tag}</div>
           <div class="pc-name">${esc(name)}</div>
-          ${it.imei ? `<div class="pc-meta">IMEI ${imeiBold(it.imei)}</div>` : ''}
-          <div class="pc-spec"><div><span>No Model</span><b>${esc(it.noModel || '-')}</b></div><div><span>Spesifikasi</span><b>${esc(it.spek || '-')}</b></div><div><span>Kelengkapan</span><b>${esc(it.kelengkapan || '-')}</b></div></div>
+          ${(!isGG && it.imei) ? `<div class="pc-meta">IMEI ${imeiBold(it.imei)}</div>` : ''}
+          ${spec}
           ${prev}
           <div class="chk-actions" id="periksaActions">
             <button class="btn btn-success" onclick="periksaOk()">Sesuai</button>
