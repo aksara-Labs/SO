@@ -1003,9 +1003,29 @@
     .sug-nm { display: block; font-size: .74rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: inherit; }
     .sug-i { min-width: 0; flex: 1; }
     .sug-row.done { opacity: .55; }
+    /* ---- Home rapi: semua isi tetap di dalam kotak ---- */
+    #statsSection { min-width: 0; }
+    .stats .stat { min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+    .stat .num { white-space: nowrap; line-height: 1.1; }
+    .stat .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .stat .tbar { height: 5px; margin: 8px 0 0; background: #f6dcdc; }
     .stat .tbar i { background: var(--success); display: block; height: 100%; border-radius: 99px; transition: width .3s; }
-    .stat .tbar-txt { font-size: .68rem; font-weight: 700; color: var(--muted); margin-top: 5px; }
+    .stat .tbar-txt { font-size: .68rem; font-weight: 700; color: var(--muted); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #kodeStats { align-items: stretch; gap: 10px; }
+    #kodeStats .kcard { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; overflow: hidden; padding: 11px 10px 10px; border-radius: 14px; }
+    .kc-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; min-height: 22px; }
+    .kc-ok { width: 20px; height: 20px; flex: 0 0 auto; }
+    .kc-num { font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; white-space: nowrap; color: var(--text); }
+    .kc-num small { font-size: .72rem; color: var(--muted); font-weight: 600; margin-left: 1px; }
+    #kodeStats .kcard .bar { margin-top: 8px; height: 6px; }
+    .kc-cap { margin-top: 7px; font-size: .66rem; font-weight: 700; color: var(--muted); line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+    .kcard.fin { border-color: #bcd0fb; background: linear-gradient(180deg, #eaf1ff, #fff 75%); }
+    .kcard.fin .kc-cap { color: #1d4ed8; } .kcard.fin .bar i { background: #2f6bff; }
+    .grp-row .kc-ok { width: 22px; height: 22px; } #grpOk { display: inline-flex; }
+    #grpOk.hidden { display: none !important; }
+    .plist .pseg { margin: 4px 0 8px; }
+    .home-tools { margin-top: 0; }
+    @media (min-width: 900px) { .view-display .kc-num { font-size: 1.8rem; } .view-display .kc-cap { font-size: .8rem; } .view-display #kodeStats .kcard { padding: 16px 18px; } }
     .sug-st { flex: 0 0 auto; font-size: .66rem; font-weight: 800; color: var(--success); }
 
     /* ---- modal "Tanggal awal pemeriksaan": rapi di HP ---- */
@@ -1066,7 +1086,7 @@
     <div id="page-group" class="page">
       <div class="grp-top"><button class="grp-back" onclick="showPage('home')">&#8249; Kembali</button></div>
       <div class="card grp-card k-GE" id="grpHead">
-        <div class="grp-row"><span class="tag" id="grpTag">GE</span><span class="grp-lbl">Kelompok</span><b id="grpCount">0</b></div>
+        <div class="grp-row"><span class="tag" id="grpTag">GE</span><span class="grp-lbl">Kelompok</span><span id="grpOk" class="hidden"></span><b id="grpCount">0</b></div>
         <div class="bar"><i id="grpBar" style="width:0%"></i></div>
         <div class="grp-note" id="grpNote"></div>
         <button class="btn btn-success btn-block" id="grpStart" onclick="enterScan('scan')">Start</button>
@@ -1806,16 +1826,22 @@
       resumeScan();           // lanjut: kamera terbuka lagi
     }
 
+    let periksaView = 'belum';
+    function setPeriksaView(v) { periksaView = v; renderPeriksaList(); }
     function renderPeriksaList() {
       const box = document.getElementById('periksaBox');
       if (!box) return;
       const list = turunList();
-      const done = list.filter(periksaDone).length;
+      const belum = list.filter(i => !periksaDone(i)), sudah = list.filter(periksaDone);
+      const done = sudah.length;
       const pct = list.length ? Math.round(done / list.length * 100) : 0;
       document.getElementById('phCount').textContent = done + '/' + list.length;
       document.getElementById('phBar').style.width = pct + '%';
       const wasOpen = !!box.querySelector('details[open]');
-      box.innerHTML = `<details class="plist" ${wasOpen ? 'open' : ''}><summary><span>Daftar barang turun</span><span style="margin-left:auto;margin-right:8px;color:var(--muted)">${done}/${list.length}</span></summary><div class="plist-body">` + (list.length ? list.map(i => {
+      const shown = periksaView === 'belum' ? belum : periksaView === 'sudah' ? sudah : belum.concat(sudah);   // "Semua": yang sudah di bawah
+      const tabs = [['belum', 'Belum (' + belum.length + ')'], ['sudah', 'Sudah (' + sudah.length + ')'], ['semua', 'Semua (' + list.length + ')']]
+        .map(x => '<button class="' + (periksaView === x[0] ? 'on' : '') + '" onclick="event.stopPropagation();setPeriksaView(\'' + x[0] + '\')">' + x[1] + '</button>').join('');
+      const rows = shown.length ? shown.map(i => {
         const name = [i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || 'Tanpa Nama';
         const kc = KODES.includes(i.kode) ? 'k-' + i.kode : '';
         const lbl = i.pl ? 'PL' : i.rec ? 'REC' : (i.periksa === 'ok' ? 'OK' : (i.periksa === 'tidak' ? 'TIDAK SESUAI' : 'BELUM'));
@@ -1829,7 +1855,8 @@
               ${i.periksaTxt ? `<div class="meta">${esc(i.periksaTxt)}</div>` : ''}
             </div>
           </div>`;
-      }).join('') : '<div style="padding:18px;text-align:center;color:var(--muted)">Tidak ada barang wajib turun</div>') + '</div></details>';
+      }).join('') : '<div style="padding:18px;text-align:center;color:var(--muted)">' + (!list.length ? 'Tidak ada barang wajib turun' : periksaView === 'belum' ? 'Semua barang turun sudah diperiksa' : 'Belum ada yang diperiksa') + '</div>';
+      box.innerHTML = `<details class="plist" ${wasOpen ? 'open' : ''}><summary><span>Daftar barang turun</span><span style="margin-left:auto;margin-right:8px;color:var(--muted)">${done}/${list.length}</span></summary><div class="plist-body"><div class="seg pseg">${tabs}</div>${rows}</div></details>`;
     }
 
     // ===== PL: barang sudah dilunasi / tidak ada -> Mark & Ket di spreadsheet diisi "PL" =====
@@ -1880,6 +1907,13 @@
       renderList();
     }
 
+    const BLUE_CHECK = '<svg class="kc-ok" viewBox="0 0 24 24" aria-label="Pemeriksaan selesai"><circle cx="12" cy="12" r="11" fill="#2f6bff"/><path d="M7 12.5l3.2 3.2L17 8.8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    function kodeFinish(k) {   // selesai = semua ter-scan + semua barang turun di kelompok itu sudah diperiksa
+      const all = items.filter(i => i.kode === k);
+      const pend = all.filter(i => !i.pl && !i.rec && i.mark !== 1).length;
+      const t = all.filter(i => i.wajibAsli), td = t.filter(periksaDone).length;
+      return { pend, tn: t.length, td, finished: all.length > 0 && pend === 0 && td === t.length };
+    }
     function renderKodeStats() {
       const box = document.getElementById('kodeStats');
       if (!box) return;
@@ -1889,7 +1923,9 @@
         const plN = all.length - a.length;
         const m = a.filter(i => i.mark === 1).length;
         const p = a.length ? Math.round(m * 100 / a.length) : 0;
-        return `<div class="kcard k-${k}${a.length && m >= a.length ? ' done' : ''}" role="button" tabindex="0" onclick="openGroup('${k}')"><div class="kh"><span class="tag">${k}</span><b>${m}<small>/${a.length}</small></b>${plN ? `<small style="color:#92400e">PL ${plN}</small>` : ''}</div><div class="bar"><i style="width:${p}%"></i></div></div>`;
+        const f = kodeFinish(k);
+        const cap = f.finished ? 'Selesai diperiksa' : (f.pend > 0 ? 'Sisa ' + f.pend + ' belum' : 'Periksa ' + f.td + '/' + f.tn);
+        return `<div class="kcard k-${k}${f.finished ? ' fin' : ''}" role="button" tabindex="0" onclick="openGroup('${k}')"><div class="kc-top"><span class="tag">${k}</span>${f.finished ? BLUE_CHECK : ''}</div><div class="kc-num">${m}<small>/${a.length}</small></div><div class="bar"><i style="width:${p}%"></i></div><div class="kc-cap">${cap}${plN ? ' · PL ' + plN : ''}</div></div>`;
       }).join('');
       KODES.forEach(k => {
         const el = document.getElementById('cnt-' + k);
@@ -2825,6 +2861,7 @@
       const complete = s.all.length > 0 && s.pending.length === 0;
       document.getElementById('grpHead').className = 'card grp-card k-' + k;
       document.getElementById('grpTag').textContent = k;
+      { const ok = document.getElementById('grpOk'), f = kodeFinish(k); ok.innerHTML = f.finished ? BLUE_CHECK : ''; ok.classList.toggle('hidden', !f.finished); }
       document.getElementById('grpCount').innerHTML = s.done + '<small>/' + s.total + '</small>';
       document.getElementById('grpBar').style.width = (s.total ? Math.round(s.done * 100 / s.total) : 0) + '%';
       const note = document.getElementById('grpNote');
