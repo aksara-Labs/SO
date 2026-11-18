@@ -995,6 +995,27 @@
     .sg-bar .bar { flex: 1; min-width: 30px; }
     .no-rak #rakBar, .no-rak #rakPanel { display: none !important; }
     @media (min-width: 900px) { .view-display .home-tools { grid-column: 1 / -1; } }
+    .sug-box { margin-top: 8px; background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--sh1); }
+    .sug-head { font-size: .72rem; font-weight: 700; color: var(--muted); padding: 8px 12px 4px; }
+    .sug-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border: 0; border-top: 1px solid var(--border); background: #fff; font-family: inherit; cursor: pointer; }
+    .sug-row:active { background: var(--soft); }
+    .sug-nf { font-family: ui-monospace, Menlo, monospace; font-size: .92rem; font-weight: 600; color: var(--muted); word-break: break-all; }
+    .sug-nm { display: block; font-size: .74rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: inherit; }
+    .sug-i { min-width: 0; flex: 1; }
+    .sug-row.done { opacity: .55; }
+    .sug-st { flex: 0 0 auto; font-size: .66rem; font-weight: 800; color: var(--success); }
+
+    /* ---- modal "Tanggal awal pemeriksaan": rapi di HP ---- */
+    #dateModal .remote-inner { padding: 22px 20px 14px; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
+    #dateModal .rm-title { font-size: 1.15rem; margin-bottom: 6px; }
+    #dateModal .gate-note { font-size: .85rem; line-height: 1.5; margin-bottom: 12px; }
+    #dateModal .gate-info { font-size: .82rem; margin-bottom: 14px; }
+    #dateModal #turunDate { display: block; flex: none; width: 100%; min-width: 0; max-width: 100%; height: 48px; padding: 0 14px; text-align: left; -webkit-appearance: none; appearance: none; font-size: 1rem; }
+    #dateModal #turunDate::-webkit-date-and-time-value { text-align: left; }
+    #dateModal .gate-prev { font-size: .82rem; margin: 10px 2px 16px; }
+    #dateModal .btn-block { width: 100%; white-space: normal; line-height: 1.25; }
+    #dateModal .btn-outline { margin-top: 8px; }
+    #dateModal .pc-skip { display: block; width: 100%; margin: 6px 0 0; padding: 12px; text-align: center; }
 </style>
 </head>
 <body>
@@ -1065,9 +1086,10 @@
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input" id="manualWrap">
-          <input type="text" id="manualBarcode" placeholder="Ketik No Faktur (angka)..." inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="search" oninput="this.value=this.value.replace(/\D/g,'')" />
+          <input type="text" id="manualBarcode" placeholder="Ketik No Faktur (angka)..." inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="search" oninput="this.value=this.value.replace(/\D/g,'');renderSuggest(this.value)" />
           <button class="btn btn-primary" onclick="manualSearch(document.getElementById('manualBarcode').value)">Cari</button>
         </div>
+        <div id="manualSuggest" class="sug-box hidden"></div>
         <div id="rakPanel" class="hidden"></div>
         <div id="scanLog"></div>
         <div id="periksaBox" class="hidden"></div>
@@ -2090,7 +2112,7 @@
 
     function afterScanUi() {
       const input = document.getElementById('manualBarcode');
-      input.value = '';
+      input.value = ''; renderSuggest('');
       if (!isScanning) input.focus();   // jangan buka keyboard saat kamera aktif
     }
 
@@ -2150,6 +2172,26 @@
     }
 
     // ===== Barcode tidak terbaca: cukup ketik beberapa digit TERAKHIR No Faktur, lalu pilih =====
+    function renderSuggest(v) {   // ketik >= 3 digit terakhir No Faktur -> saran langsung muncul
+      const box = document.getElementById('manualSuggest');
+      if (!box) return;
+      v = String(v || '').replace(/\D/g, '');
+      if (v.length < 3 || !items.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      let cand = items.filter(i => inGrp(i) && cleanBarcode(i.noFaktur).endsWith(v));
+      if (scanMode !== 'periksa') { const ok = cand.filter(i => !i.pl && !i.rec); cand = ok; }
+      const belum = scanMode === 'periksa' ? cand : cand.filter(i => i.mark !== 1);
+      const pick = belum.length ? belum : cand;
+      if (!pick.length) { box.innerHTML = '<div class="sug-head">Tidak ada No Faktur berakhiran ' + esc(v) + (scanGroup ? ' di ' + esc(scanGroup) : '') + '</div>'; box.classList.remove('hidden'); return; }
+      box.innerHTML = '<div class="sug-head">' + pick.length + ' saran' + (belum.length && belum.length < cand.length ? ' (yang belum ter-scan)' : '') + ' — ketuk untuk pilih</div>' +
+        pick.slice(0, 6).map(i => '<button type="button" class="sug-row' + (i.mark === 1 ? ' done' : '') + '" data-nf="' + esc(cleanBarcode(i.noFaktur)) + '" onclick="pickSuggest(this.dataset.nf)"><span class="sug-i"><span class="sug-nf">' + imeiBold(cleanBarcode(i.noFaktur)) + '</span><span class="sug-nm">' + esc([i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || '-') + '</span></span>' + (i.mark === 1 ? '<span class="sug-st">SUDAH</span>' : '') + '</button>').join('') +
+        (pick.length > 6 ? '<div class="sug-head">+' + (pick.length - 6) + ' lainnya, tambah digit supaya lebih sedikit</div>' : '');
+      box.classList.remove('hidden');
+    }
+    function pickSuggest(nf) {
+      document.getElementById('manualBarcode').value = '';
+      renderSuggest('');
+      doScan(nf);
+    }
     function manualSearch(v) {
       v = cleanBarcode(v);
       if (!v) return;
@@ -2168,8 +2210,8 @@
     function markManual(nf) {
       const it = itemIndex.get(cleanBarcode(nf).toUpperCase());
       if (!it || it.mark === 1 || it.pl || it.rec) return;
-      if (!confirm('Tandai ' + it.noFaktur + ' sudah ada?\n(Ket: Manual)')) return;
-      it.mark = 1; queueSync(it.noFaktur); queueKet(it.noFaktur, 'Manual', 'manual');
+      if (!confirm('Tandai ' + it.noFaktur + ' sudah ada?')) return;
+      it.mark = 1; queueSync(it.noFaktur);   // tanpa keterangan (Ket dibiarkan kosong)
       toast('Ditandai ada', 'success');
       renderList(); refreshStats();
     }
@@ -2747,7 +2789,7 @@
       if (page === 'list') renderList();
       if (page === 'group') renderGroup();
       if (page === 'scan') {   // kamera otomatis nyala (Scan atau Periksa, sesuai tombol yang diklik)
-        applyScanGroup();
+        applyScanGroup(); { const mi = document.getElementById('manualBarcode'); if (mi) mi.value = ''; renderSuggest(''); }
         const m = pendingMode || 'scan'; pendingMode = null;
         setMode(m);
       }
@@ -2827,7 +2869,7 @@
       beep(false); flash('#e11d48', 600);
       setCamStatus('Bukan ' + scanGroup + ' — ini ' + it.kode, 'err', 2200);
       addLog(code, 'err', 'bukan ' + scanGroup + ' (' + it.kode + ')');
-      document.getElementById('manualBarcode').value = '';
+      document.getElementById('manualBarcode').value = ''; renderSuggest('');
       if (scanMode !== 'periksa') document.getElementById('scanResult').innerHTML = '<div class="result-box error"><div class="res-top"><span class="res-nf">' + esc(it.noFaktur) + '</span><span class="tag k-' + esc(it.kode) + '">' + esc(it.kode) + '</span></div><div class="title">BUKAN KELOMPOK ' + esc(scanGroup) + '</div><div class="detail">Barang ini kelompok <b>' + esc(it.kode) + '</b>, tidak di-mark. Scan lewat kelompok ' + esc(it.kode) + '.</div></div>';
     }
 
