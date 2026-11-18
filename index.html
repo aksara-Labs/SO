@@ -1021,7 +1021,7 @@
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input" id="manualWrap">
           <input type="text" id="manualBarcode" placeholder="Ketik No Faktur (angka)..." inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="search" oninput="this.value=this.value.replace(/\D/g,'')" />
-          <button class="btn btn-primary" onclick="doScan(document.getElementById('manualBarcode').value)">Cari</button>
+          <button class="btn btn-primary" onclick="manualSearch(document.getElementById('manualBarcode').value)">Cari</button>
         </div>
         <div id="scanLog"></div>
         <div id="periksaBox" class="hidden"></div>
@@ -1077,7 +1077,7 @@
   <div class="remote-modal hidden" id="remoteModal"><div class="remote-inner" id="remoteBody"></div></div>
   <div class="remote-modal hidden" id="dateModal" style="z-index:450"><div class="remote-inner">
     <div class="rm-title">Tanggal awal pemeriksaan</div>
-    <div class="gate-note">Belum ada No Faktur berlatar merah yang terbaca dari spreadsheet. Pilih tanggal awal: semua barang dari tanggal itu sampai No Faktur paling akhir akan diberi latar merah (wajib turun).</div>
+    <div class="gate-note">Belum ada No Faktur merah. Pilih tanggal awal, semua faktur sejak tanggal itu ditandai merah (wajib turun).</div>
     <div class="gate-info" id="gateInfo"></div>
     <input type="date" id="turunDate" class="search-box" oninput="updateDatePreview()" />
     <div id="datePreview" class="gate-prev"></div>
@@ -1087,9 +1087,9 @@
   </div></div>
   <div class="remote-modal hidden" id="plModal" style="z-index:500" onclick="if(event.target===this)closePLConfirm()"><div class="remote-inner pl-dialog" role="dialog" aria-modal="true" aria-labelledby="plTitle">
     <div class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/></svg></div>
-    <div class="pl-title" id="plTitle">Tandai sebagai Pelunasan?</div>
+    <div class="pl-title" id="plTitle">Tandai Pelunasan?</div>
     <div class="pl-nf" id="plNf"></div>
-    <div class="pl-desc" id="plDesc">Kolom <b>Mark</b> dan <b>Ket</b> di spreadsheet akan diisi <b>PL</b>, dan barang tidak lagi dihitung wajib turun.</div>
+    <div class="pl-desc" id="plDesc">Ket akan diisi <b>PL</b>.</div>
     <div class="pl-btns">
       <button class="btn btn-outline" type="button" onclick="closePLConfirm()">Batal</button>
       <button class="btn btn-pl" id="plYes" type="button" onclick="confirmPL()">Ya, Tandai PL</button>
@@ -1305,7 +1305,7 @@
         showPage(VIEW === 'scanner' ? 'scan' : 'home');   // HP: langsung kamera; laptop: ringkasan
       }
       document.getElementById('manualBarcode').addEventListener('keydown', e => {
-        if (e.key === 'Enter') doScan(e.target.value);
+        if (e.key === 'Enter') manualSearch(e.target.value);
       });
     });
 
@@ -1324,7 +1324,7 @@
         const data = await api('ping');
         if (data.ok) {
           status.innerHTML = '<span class="status-dot ok"></span>Terhubung' + ((data.version || 0) < 10 ? ' — backend LAMA' : '');
-          if ((data.version || 0) < 10) toast('Backend masih versi lama. Paste Code.gs baru lalu Deploy → New version', 'warning');
+          if ((data.version || 0) < 10) toast('Backend versi lama. Update & deploy ulang', 'warning');
           if (data.turunDate) { try { localStorage.setItem('stockScan_turunDate', data.turunDate); } catch (e) {} }
           document.getElementById('headerSub').textContent = 'Backend siap';
           loadData();
@@ -1380,7 +1380,7 @@
         `<details><summary><span>${esc(g[0])}</span><b>${g[1].length}</b></summary><div class="cek-nf">${g[1].map(esc).join('<br>')}</div></details>`).join('') + missing + '</div>';
     }
 
-    let lastRedCount = null;
+    let lastRedCount = null, lastLoadAt = 0;
     async function loadData(silent) {
       if (window.__loading) return;
       window.__loading = true;
@@ -1402,6 +1402,7 @@
 
         items = data.items || [];
         buildIndex();
+        lastLoadAt = Date.now();
         { const redNow = items.filter(i => i.wajibAsli).length;   // merah di spreadsheet dihapus -> gerbang tanggal aktif lagi
           if (typeof lastRedCount === 'number' && lastRedCount > 0 && redNow === 0) scanGateOk = false;
           lastRedCount = redNow; }
@@ -1505,6 +1506,7 @@
     }
 
     function periksaCardHtml(it) {
+      const plOnly = !it.wajibAsli;   // barang tidak turun: satu-satunya aksi = tandai PL (Ket), Mark tetap
       const isGG = String(it.kode || '').toUpperCase() === 'GG';
       const isGB = String(it.kode || '').toUpperCase() === 'GB';
       const pick = (...ks) => { for (const k of ks) if (it[k] !== undefined && it[k] !== null && String(it[k]).trim() !== '') return it[k]; return ''; };
@@ -1540,22 +1542,18 @@
           <div class="pc-head">
             <div class="pc-head-top"><span class="pc-lbl">No Faktur</span>
               <div class="pc-corner">${tag}
-                <button class="pc-aksi" type="button" aria-haspopup="true" onclick="toggleAksi(event)">Aksi<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
-                <div class="aksi-menu hidden" id="aksiMenu" onclick="event.stopPropagation()">
-                  <button type="button" onclick="openAksiConfirm('pl')">${ICO_PL}<span>Tandai Pelunasan (PL)</span></button>
-                  <button type="button" class="rec" onclick="openAksiConfirm('rec')">${ICO_REC}<span>Tandai Reclaim (Rec)</span></button>
-                </div>
               </div>
             </div>
             <div class="pc-nf">${esc(it.noFaktur)}</div>
             <div class="pc-name">${esc(name)}</div>
           </div>
           ${spec}
-          ${prev}
+          ${plOnly ? '<div class="pc-prev pl"><i></i><span>Tidak turun</span><b>Ada pelunasan?</b></div>' : prev}
           <div class="pc-actions">
             <div class="chk-actions" id="periksaActions">
-              <button class="btn btn-success" onclick="periksaOk()">${ICO_OK}Sesuai</button>
-              <button class="btn btn-danger" onclick="periksaTidak()">${ICO_NO}Tidak Sesuai</button>
+              ${plOnly ? '' : `<button class="btn btn-success" onclick="periksaOk()">${ICO_OK}Sesuai</button>
+              <button class="btn btn-danger" onclick="periksaTidak()">${ICO_NO}Tidak Sesuai</button>`}
+              <button class="btn pl-choice" type="button" onclick="openAksiConfirm('pl')">${ICO_PL}Tandai Pelunasan (PL)</button>
             </div>
             <div id="periksaForm" class="hidden">
               <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." onkeydown="if(event.key==='Enter')periksaSave()" />
@@ -1589,18 +1587,15 @@
         signalScan('nf'); addLog(code, 'nf', 'tidak ada di data');
         return;   // kamera tetap menyala, status tampil di layar kamera
       }
-      if (!it.wajibAsli) {
-        beep(false); setCamStatus('Bukan barang wajib turun · ' + it.noFaktur, 'warn', 2200); addLog(code, 'dup', 'bukan barang turun');
-        return;
-      }
       if (it.rec) {
         beep(false); setCamStatus('Sudah Reclaim · ' + it.noFaktur, 'warn', 2200); addLog(code, 'dup', 'sudah Rec');
         return;
       }
       if (it.pl) {
-        beep(false); setCamStatus('Sudah PL (pelunasan) · ' + it.noFaktur, 'warn', 2200); addLog(code, 'dup', 'sudah PL');
+        beep(false); setCamStatus('Sudah PL · ' + it.noFaktur, 'warn', 2200); addLog(code, 'dup', 'sudah PL');
         return;
       }
+      // barang tidak turun & belum PL: tetap tampil kartu, hanya dengan tombol Tandai PL
       beepScan(1);
       holdCamera();          // kode berhasil dipindai -> kamera & flash mati
       showPeriksaCard(it);
@@ -1641,10 +1636,10 @@
     function openAksiConfirm(kind) {
       aksiKind = kind;
       const rec = kind === 'rec';
-      document.getElementById('plTitle').textContent = rec ? 'Tandai sebagai Reclaim?' : 'Tandai sebagai Pelunasan?';
+      document.getElementById('plTitle').textContent = rec ? 'Tandai Reclaim?' : 'Tandai Pelunasan?';
       document.getElementById('plDesc').innerHTML = rec
-        ? 'Kolom <b>Mark</b> dan <b>Ket</b> di spreadsheet akan diisi <b>Rec</b>, dan barang tidak lagi dihitung wajib turun.'
-        : 'Kolom <b>Mark</b> dan <b>Ket</b> di spreadsheet akan diisi <b>PL</b>, dan barang tidak lagi dihitung wajib turun.';
+        ? 'Ket akan diisi <b>Rec</b>.'
+        : 'Ket akan diisi <b>PL</b>.';
       document.getElementById('plYes').textContent = rec ? 'Ya, Tandai Rec' : 'Ya, Tandai PL';
       document.getElementById('plYes').className = 'btn ' + (rec ? 'btn-rec' : 'btn-pl');
       openPLConfirm();
@@ -1723,8 +1718,8 @@
       const it = itemIndex.get(cleanBarcode(nf).toUpperCase());
       if (!it) return;
       const on = !it.pl;
-      const msg = on ? 'Tandai ' + it.noFaktur + ' sebagai PL (sudah dilunasi / barang tidak ada)?\n\nKet di spreadsheet diisi "PL" dan Mark diisi "PL" (jadi 1 kalau barangnya di-scan, Ket tetap PL).'
-                     : 'Batalkan PL untuk ' + it.noFaktur + '?';
+      const msg = on ? 'Tandai ' + it.noFaktur + ' sebagai PL?'
+                     : 'Batalkan PL ' + it.noFaktur + '?';
       if (!confirm(msg)) return;
       const prev = { pl: it.pl, mark: it.mark, wajibTurun: it.wajibTurun };
       const apply = (v) => { it.pl = v.pl; it.mark = v.mark; it.wajibTurun = v.wajibTurun; renderList(); refreshStats(); renderPeriksaList(); };
@@ -1743,7 +1738,8 @@
       const it = itemIndex.get(cleanBarcode(nf).toUpperCase());
       if (!it) return;
       const on = !it.rec;
-      const msg = on ? 'Tandai ' + it.noFaktur + ' sebagai Reclaim?\n\nMark dan Ket di spreadsheet diisi "Rec".' : 'Batalkan Reclaim untuk ' + it.noFaktur + '?';
+      if (on && it.wajibAsli) { toast('Barang turun tidak bisa Reclaim', 'warning'); return; }
+      const msg = on ? 'Tandai ' + it.noFaktur + ' sebagai Reclaim?' : 'Batalkan Reclaim ' + it.noFaktur + '?';
       if (!confirm(msg)) return;
       const prev = { rec: it.rec, mark: it.mark, wajibTurun: it.wajibTurun };
       const apply = (v) => { it.rec = v.rec; it.mark = v.mark; it.wajibTurun = v.wajibTurun; renderList(); refreshStats(); renderPeriksaList(); };
@@ -1855,7 +1851,7 @@
           j.tries = (j.tries || 0) + 1;
           if (j.tries >= 6 || /tidak dikenal/i.test(e.message)) {
             ketQueue.shift(); saveKet();
-            toast('Gagal menulis kolom Ket: ' + e.message + ' (paste Code.gs terbaru & deploy ulang)', 'error');
+            toast('Gagal tulis Ket: ' + e.message, 'error');
           } else await sleep(2500);
         }
       }
@@ -2057,6 +2053,31 @@
       } else {
         beep(false); flash('#dc2626', 400); setCamStatus('Error koneksi/server (bukan salah baca)', 'err', 2500);
       }
+    }
+
+    // ===== Barcode tidak terbaca: cukup ketik beberapa digit TERAKHIR No Faktur, lalu pilih =====
+    function manualSearch(v) {
+      v = cleanBarcode(v);
+      if (!v) return;
+      if (itemIndex.has(v.toUpperCase()) || v.length >= 12) { doScan(v); return; }   // No Faktur lengkap
+      const cand = items.filter(i => !i.pl && !i.rec && cleanBarcode(i.noFaktur).endsWith(v));
+      const belum = cand.filter(i => i.mark !== 1);
+      const pick = belum.length ? belum : cand;
+      const el = document.getElementById('scanResult');
+      if (!pick.length) { doScan(v); return; }
+      if (pick.length === 1) { document.getElementById('manualBarcode').value = ''; doScan(cleanBarcode(pick[0].noFaktur)); return; }
+      el.innerHTML = '<div class="result-box warning"><div class="title">' + pick.length + ' No Faktur berakhiran ' + esc(v) + '</div><div class="detail">Tap yang sesuai' + (belum.length ? ' (hanya yang belum ter-scan)' : '') + ':</div>' +
+        pick.slice(0, 8).map(i => '<button class="btn btn-outline btn-block" style="margin-top:6px;text-align:left" data-nf="' + esc(cleanBarcode(i.noFaktur)) + '" onclick="document.getElementById(\'manualBarcode\').value=\'\';doScan(this.dataset.nf)">' + esc(i.noFaktur) + ' · ' + esc([i.jenis, i.merk].filter(Boolean).join(' ')) + '</button>').join('') +
+        (pick.length > 8 ? '<div class="detail" style="margin-top:6px">Tambah digit supaya lebih sedikit</div>' : '') + '</div>';
+    }
+    // Tandai "ada" tanpa scan (barcode rusak / tidak terbaca): Mark = 1, Ket = Manual
+    function markManual(nf) {
+      const it = itemIndex.get(cleanBarcode(nf).toUpperCase());
+      if (!it || it.mark === 1 || it.pl || it.rec) return;
+      if (!confirm('Tandai ' + it.noFaktur + ' sudah ada?\n(Ket: Manual)')) return;
+      it.mark = 1; queueSync(it.noFaktur); queueKet(it.noFaktur, 'Manual', 'manual');
+      toast('Ditandai ada', 'success');
+      renderList(); refreshStats();
     }
 
     async function doScan(code) {
@@ -2518,7 +2539,7 @@
               <div class="name">${esc(name)}</div>
               <div class="meta">${i.imei ? 'IMEI: ' + esc(i.imei) : (i.noPolisi ? 'Polisi: ' + esc(i.noPolisi) : '')}</div>
             </div>
-            <div class="ibtns"><button class="pl-btn ${i.pl ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="togglePL(this.dataset.nf)">${i.pl ? 'Batal PL' : 'PL'}</button><button class="pl-btn ${i.rec ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="toggleRec(this.dataset.nf)">${i.rec ? 'Batal Rec' : 'Rec'}</button></div>
+            <div class="ibtns">${(i.mark !== 1 && !i.pl && !i.rec) ? `<button class="pl-btn" data-nf="${esc(i.noFaktur)}" onclick="markManual(this.dataset.nf)">Ada</button>` : ''}<button class="pl-btn ${i.pl ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="togglePL(this.dataset.nf)">${i.pl ? 'Batal PL' : 'PL'}</button>${(i.wajibAsli && !i.rec) ? '' : `<button class="pl-btn ${i.rec ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="toggleRec(this.dataset.nf)">${i.rec ? 'Batal Rec' : 'Rec'}</button>`}</div>
           </div>`;
       }).join('');
     }
@@ -2560,8 +2581,8 @@
       try {
         while (window.__loading) await sleep(200);
         toast('Memeriksa spreadsheet...', '');
-        await loadData(true);   // data terbaru, supaya keputusan "ada merah / tidak" akurat
-        if (!items.length) { toast('Data belum termuat. Cek koneksi lalu coba lagi', 'error'); return; }
+        if (!lastLoadAt || Date.now() - lastLoadAt > 30000) await loadData(true);   // data baru saja dimuat -> tidak perlu muat ulang
+        if (!items.length) { toast('Data belum termuat, cek koneksi', 'error'); return; }
         const red = items.filter(i => i.wajibAsli).length;
         // Keputusan HANYA dari isi spreadsheet: ada merah -> langsung scan; tidak ada merah -> selalu tanya tanggal
         if (red > 0) { scanGateOk = true; showPage('scan'); }
@@ -2597,7 +2618,7 @@
       try {
         const r = await api('setturun', { date: v });
         if (!r.ok) throw new Error(r.error || 'gagal');
-        if (!r.red) { toast('Tidak ada barang pada / setelah tanggal itu. Pilih tanggal lain', 'warning'); return; }
+        if (!r.red) { toast('Tidak ada barang di tanggal itu', 'warning'); return; }
         try { localStorage.setItem('stockScan_turunDate', v); } catch (e) {}
         markGateToday();
         toast(r.red + ' barang ditandai merah', 'success');
@@ -2607,7 +2628,7 @@
         await loadData(true);
         showPage('scan');
       } catch (e) {
-        toast('Gagal menandai: ' + e.message + ' (paste Code.gs terbaru & deploy ulang)', 'error');
+        toast('Gagal menandai: ' + e.message, 'error');
       } finally {
         btn.disabled = false; btn.textContent = label;
       }
