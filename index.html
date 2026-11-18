@@ -805,6 +805,97 @@
     .fsel select:focus { border-color: var(--brand); background-color: #fff; box-shadow: 0 0 0 4px rgba(47,107,255,.14); }
     .list-toolbar { padding-bottom: 16px; }
     @media (max-width: 380px) { .filter-row { gap: 8px; } .fsel select { font-size: .86rem; padding-left: 12px; } }
+
+    /* ============================================================
+       v10 — tidak ada geser kanan-kiri di HP
+       ============================================================ */
+    html { overflow-x: hidden; width: 100%; }
+    body { overflow-x: clip; width: 100%; max-width: 100vw; position: relative; }
+    .container, .page, .card, .config-box { width: 100%; max-width: 100%; min-width: 0; }
+    .stats > *, .kode-grid > *, .filter-row > *, .item, .item .info, .rak-bar > *, .manual-input > *, .log-row > *, .pcard, .result-box, .res-top > *, .pc-top > * { min-width: 0; }
+    .kode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (max-width: 600px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .manual-input input { min-width: 0; }
+    .rak-bar select { max-width: 46%; min-width: 0; }
+    .res-nf, .pc-nf, .cek-nf, .pc-meta, .pc-name, .res-name, .log-row span { overflow-wrap: anywhere; word-break: break-word; }
+    .item .name, .item .meta { overflow: hidden; text-overflow: ellipsis; }
+    .nav { left: 10px; right: 10px; width: auto; max-width: calc(100vw - 20px); box-sizing: border-box; }
+    .nav-item { min-width: 0; }
+    .header { max-width: 100vw; box-sizing: border-box; }
+    .toast { max-width: calc(100vw - 32px); }
+    .remote-inner { max-width: min(460px, 100%); box-sizing: border-box; }
+    img, video, svg, canvas { max-width: 100%; }
+    #camWrap { max-width: 100%; }
+    @media (min-width: 900px) {
+      .view-display .nav { left: 0; right: auto; width: 84px; max-width: 84px; }
+    }
+
+    /* ============================================================
+       v11 — kartu pemeriksaan (HP & modal laptop) bergaya lembar data
+       ============================================================ */
+    .pcard { padding: 0 !important; overflow: hidden; border: 1px solid var(--border); border-radius: 20px; background: #fff; box-shadow: var(--sh2) !important; }
+    .pcard::before { display: none; }
+    .pc-head { padding: 16px 18px 14px; background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%); color: #fff; position: relative; }
+    .pc-head::after { content: ""; position: absolute; right: -30px; top: -40px; width: 130px; height: 130px; border-radius: 50%; background: radial-gradient(circle, rgba(111,155,255,.35), rgba(111,155,255,0) 70%); pointer-events: none; }
+    .pc-head-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .pc-head .pc-lbl { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #9fb2d6; }
+    .pc-head .tag { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.2); font-size: .72rem; padding: 3px 10px; border-radius: 99px; }
+    .pc-head .pc-nf { font-family: var(--mono); font-size: 1.45rem; font-weight: 800; letter-spacing: -.01em; color: #fff; line-height: 1.2; overflow-wrap: anywhere; }
+    .pc-head .pc-name { margin: 8px 0 0; font-size: .92rem; font-weight: 600; color: #cdd9f2; letter-spacing: 0; line-height: 1.35; }
+
+    .pc-rows { padding: 4px 18px; }
+    .pc-row { display: grid; grid-template-columns: minmax(104px, 40%) minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--border); }
+    .pc-row:last-child { border-bottom: 0; }
+    .pc-row span { font-size: .78rem; font-weight: 600; color: var(--muted); }
+    .pc-row b { font-size: .95rem; font-weight: 700; color: var(--text); text-align: right; overflow-wrap: anywhere; line-height: 1.35; }
+
+    .pcard .pc-prev { display: flex; align-items: center; gap: 8px; margin: 2px 18px 0; padding: 9px 12px; border-radius: 12px; font-size: .8rem; background: var(--soft); color: var(--muted); border: 1px solid var(--border); }
+    .pc-prev i { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; flex: 0 0 auto; }
+    .pc-prev b { margin-left: auto; text-align: right; font-weight: 800; color: var(--text); overflow-wrap: anywhere; }
+    .pc-prev.ok { background: var(--ok-bg); border-color: var(--ok-bd); } .pc-prev.ok i { background: var(--success); } .pc-prev.ok b { color: var(--ok-tx); }
+    .pc-prev.bad { background: var(--bad-bg); border-color: var(--bad-bd); } .pc-prev.bad i { background: var(--danger); } .pc-prev.bad b { color: var(--bad-tx); }
+    .pc-prev.pl { background: var(--warn-bg); border-color: var(--warn-bd); } .pc-prev.pl i { background: var(--warning); } .pc-prev.pl b { color: var(--warn-tx); }
+
+    .pc-actions { padding: 14px 18px 12px; margin-top: 10px; background: #fff; border-top: 1px solid var(--border); }
+    .pcard .chk-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
+    .pcard .chk-actions .btn { min-height: 54px; padding: 0 10px; font-size: .98rem; border-radius: 14px; gap: 8px; }
+    .pcard .chk-actions .btn svg { width: 20px; height: 20px; flex: 0 0 auto; }
+    .pcard .chk-actions .pl-choice { grid-column: 1 / -1; min-height: 48px; background: var(--warn-bg); color: var(--warn-tx); border: 1px solid var(--warn-bd); box-shadow: none; font-size: .92rem; }
+    .pcard .chk-actions .pl-choice:hover { background: #fdf0d3; }
+    .pcard .pc-skip { margin-top: 6px; padding: 10px; font-size: .84rem; color: var(--muted); border-radius: 10px; }
+    .pcard .pc-skip:hover { background: var(--soft); color: var(--text); }
+    #periksaForm { margin-top: 0; } #periksaForm .search-box { margin-bottom: 10px; }
+
+    /* HP: tombol aksi menempel di bawah layar, kartu lebih rapat */
+    .view-scanner .pcard .pc-actions { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -8px 20px rgba(10,23,48,.06); }
+    .view-scanner .pc-head { padding: 14px 16px 12px; } .view-scanner .pc-head .pc-nf { font-size: 1.3rem; }
+    .view-scanner .pc-rows { padding: 2px 16px; } .view-scanner .pc-row { padding: 9px 0; }
+    .view-scanner .pcard .pc-prev { margin: 2px 16px 0; } .view-scanner .pc-actions { padding: 12px 16px 10px; }
+    .view-scanner .pcard .chk-actions .btn { min-height: 50px; }
+
+    /* Modal laptop */
+    .remote-inner { max-width: min(520px, 100%); padding: 0; overflow: hidden; border-radius: 24px; }
+    .rm-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: #fff; }
+    .rm-ico { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: #eaf1ff; color: var(--brand2); flex: 0 0 auto; }
+    .rm-ico svg { width: 20px; height: 20px; }
+    .rm-head .rm-title { margin: 0; font-size: 1rem; } .rm-sub { font-size: .76rem; color: var(--muted); margin-top: 1px; font-weight: 500; }
+    #remoteBody { max-height: 92vh; overflow-y: auto; }
+    #remoteBody .pcard, .remote-inner .pcard { border: 0 !important; border-radius: 0; box-shadow: none !important; padding: 0 !important; }
+    #remoteBody .pc-head { border-radius: 0; }
+    .remote-inner > .rm-title, #dateModal .rm-title { padding: 20px 22px 0; margin-bottom: 8px; }
+    #dateModal .remote-inner > *:not(.rm-title) { margin-left: 22px; margin-right: 22px; }
+    #dateModal .remote-inner > .btn-block { width: calc(100% - 44px); }
+    #dateModal .remote-inner { padding-bottom: 18px; }
+
+    /* ============================================================
+       v12 — peringatan SCAN GANDA
+       ============================================================ */
+    .dupwarn { display: flex; align-items: center; gap: 10px; margin: 10px 0 2px; padding: 10px 12px; border-radius: 12px; background: #fff4d6; border: 1px solid #f0c75e; color: #7a4a05; font-size: .82rem; line-height: 1.3; animation: dupblink .5s ease-out 2; }
+    .dupwarn b { flex: 0 0 auto; padding: 3px 9px; border-radius: 99px; background: #d97706; color: #fff; font-size: .7rem; font-weight: 800; letter-spacing: .06em; }
+    .dupwarn span { font-weight: 600; }
+    .result-box.error .dupwarn { background: #fff; }
+    @keyframes dupblink { 0%, 100% { transform: none; } 30% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(217,119,6,.25); } }
   </style>
 </head>
 <body>
@@ -1092,7 +1183,7 @@
       if (!it) { await loadData(true); it = itemIndex.get(cleanBarcode(nf).toUpperCase()); }
       if (!it) return;
       remoteNf = nf; pendingPeriksa = it;
-      document.getElementById('remoteBody').innerHTML = '<div class="rm-title">Konfirmasi dari HP</div>' + periksaCardHtml(it);
+      document.getElementById('remoteBody').innerHTML = '<div class="rm-head"><span class="rm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span><div><div class="rm-title">Konfirmasi dari HP</div><div class="rm-sub">Barang sedang diperiksa di perangkat scanner</div></div></div>' + periksaCardHtml(it);
       document.getElementById('remoteModal').classList.remove('hidden');
     }
     async function pollPend() {
@@ -1337,32 +1428,41 @@
     function periksaCardHtml(it) {
       const isGG = String(it.kode || '').toUpperCase() === 'GG';
       const name = (isGG ? [it.jenis, it.merk] : [it.jenis, it.merk, it.tipe]).filter(Boolean).join(' • ') || 'Barang';
-      // Khusus GG: kotak berisi Kelengkapan, Cap, Logo, Tipe Barang, Berat Kering Emas, Potongan Berat Emas (urut)
-      const spec = isGG
-        ? '<div class="pc-spec gg">' + [
-            ['Kelengkapan', it.kelengkapan], ['Cap', it.cap], ['Logo', it.logo],
-            ['Tipe Barang', it.tipe], ['Berat Kering Emas', it.beratKering], ['Potongan Berat Emas', it.potongan]
-          ].map(r => `<div><span>${r[0]}</span><b>${esc(r[1] || '-')}</b></div>`).join('') + '</div>'
-        : `<div class="pc-spec"><div><span>No Model</span><b>${esc(it.noModel || '-')}</b></div><div><span>Spesifikasi</span><b>${esc(it.spek || '-')}</b></div><div><span>Kelengkapan</span><b>${esc(it.kelengkapan || '-')}</b></div></div>`;
+      // GG: Kelengkapan, Cap, Logo, Tipe Barang, Berat Kering Emas, Potongan Berat Emas (urut)
+      const rows = isGG
+        ? [['Kelengkapan', esc(it.kelengkapan || '-')], ['Cap', esc(it.cap || '-')], ['Logo', esc(it.logo || '-')],
+           ['Tipe Barang', esc(it.tipe || '-')], ['Berat Kering Emas', esc(it.beratKering || '-')], ['Potongan Berat Emas', esc(it.potongan || '-')]]
+        : [...(it.imei ? [['IMEI', imeiBold(it.imei)]] : []),
+           ['No Model', esc(it.noModel || '-')], ['Spesifikasi', esc(it.spek || '-')], ['Kelengkapan', esc(it.kelengkapan || '-')]];
+      const spec = '<div class="pc-rows' + (isGG ? ' gg' : '') + '">' + rows.map(r => `<div class="pc-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>';
       const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span>` : '';
-      const prev = it.pl ? `<div class="pc-prev">Status sebelumnya: <b>Pelunasan (PL)</b></div>` : (it.periksa ? `<div class="pc-prev">Hasil sebelumnya: <b>${it.periksa === 'ok' ? 'Sesuai' : 'Tidak sesuai' + (it.periksaTxt ? ' — ' + esc(it.periksaTxt) : '')}</b></div>` : '');
+      const prev = it.pl
+        ? `<div class="pc-prev pl"><i></i><span>Status sebelumnya</span><b>Pelunasan (PL)</b></div>`
+        : (it.periksa ? `<div class="pc-prev ${it.periksa === 'ok' ? 'ok' : 'bad'}"><i></i><span>Hasil sebelumnya</span><b>${it.periksa === 'ok' ? 'Sesuai' : 'Tidak sesuai' + (it.periksaTxt ? ' — ' + esc(it.periksaTxt) : '')}</b></div>` : '');
+      const ICO_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+      const ICO_NO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      const ICO_PL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/></svg>';
       return `
         <div class="pcard">
-          <div class="pc-top"><span class="pc-nf">${esc(it.noFaktur)}</span>${tag}</div>
-          <div class="pc-name">${esc(name)}</div>
-          ${(!isGG && it.imei) ? `<div class="pc-meta">IMEI ${imeiBold(it.imei)}</div>` : ''}
+          <div class="pc-head">
+            <div class="pc-head-top"><span class="pc-lbl">No Faktur</span>${tag}</div>
+            <div class="pc-nf">${esc(it.noFaktur)}</div>
+            <div class="pc-name">${esc(name)}</div>
+          </div>
           ${spec}
           ${prev}
-          <div class="chk-actions" id="periksaActions">
-            <button class="btn btn-success" onclick="periksaOk()">Sesuai</button>
-            <button class="btn btn-danger" onclick="periksaTidak()">Tidak Sesuai</button>
-            <button class="btn pl-choice" onclick="periksaPelunasan()">Pelunasan (PL)</button>
+          <div class="pc-actions">
+            <div class="chk-actions" id="periksaActions">
+              <button class="btn btn-success" onclick="periksaOk()">${ICO_OK}Sesuai</button>
+              <button class="btn btn-danger" onclick="periksaTidak()">${ICO_NO}Tidak Sesuai</button>
+              <button class="btn pl-choice" onclick="periksaPelunasan()">${ICO_PL}Pelunasan (PL)</button>
+            </div>
+            <div id="periksaForm" class="hidden">
+              <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." onkeydown="if(event.key==='Enter')periksaSave()" />
+              <button class="btn btn-danger btn-block" onclick="periksaSave()">Simpan Tidak Sesuai</button>
+            </div>
+            <button class="pc-skip" onclick="periksaBatal()">${VIEW === 'display' ? 'Tutup' : 'Batal, scan barang lain'}</button>
           </div>
-          <div id="periksaForm" class="hidden">
-            <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." onkeydown="if(event.key==='Enter')periksaSave()" />
-            <button class="btn btn-danger btn-block" onclick="periksaSave()">Simpan Tidak Sesuai</button>
-          </div>
-          <button class="pc-skip" onclick="periksaBatal()">${VIEW === 'display' ? 'Tutup' : 'Batal, scan barang lain'}</button>
         </div>`;
     }
 
@@ -1709,7 +1809,11 @@
       });
     }
 
-    function renderResult(d, alreadyMarked) {
+    const scanCount = new Map();   // berapa kali tiap No Faktur di-scan pada sesi ini
+    function bumpCount(nf) { const k = String(nf).toUpperCase(), n = (scanCount.get(k) || 0) + 1; scanCount.set(k, n); return n; }
+    function dupNote(n) { return n > 1 ? 'Sudah di-scan sebelumnya · scan ke-' + n : 'Sudah ditandai sebelumnya (di spreadsheet)'; }
+
+    function renderResult(d, alreadyMarked, n) {
       const resultEl = document.getElementById('scanResult');
       const name = [d.jenis, d.merk, d.tipe].filter(Boolean).join(' • ') || 'Barang';
       const tag = d.kode ? `<span class="tag k-${esc(d.kode)}">${esc(d.kode)}</span>` : '';
@@ -1720,6 +1824,7 @@
           <div class="result-box error">
             ${head}
             <div class="title">WAJIB TURUN</div>
+            ${alreadyMarked ? `<div class="dupwarn"><b>SCAN GANDA</b><span>${esc(dupNote(n))}</span></div>` : ''}
             <div class="res-name">${esc(name)}</div>
             ${plLine}
             ${d.imei ? `<div class="detail">IMEI: ${esc(d.imei)}</div>` : ''}
@@ -1730,6 +1835,7 @@
           <div class="result-box ${alreadyMarked ? 'warning' : 'success'}">
             ${head}
             <div class="title">${alreadyMarked ? 'Sudah di-Mark' : 'Berhasil di-Mark'}</div>
+            ${alreadyMarked ? `<div class="dupwarn"><b>SCAN GANDA</b><span>${esc(dupNote(n))}</span></div>` : ''}
             <div class="res-name">${esc(name)}</div>
             ${plLine}
           </div>`;
@@ -1778,6 +1884,10 @@
       if (type === 'turun') {
         beepScan(1); playTurunSound();
         flash('#dc2626', 900); setCamStatus('WAJIB TURUN!', 'err', 2000);
+      } else if (type === 'turundup') {
+        beepScan(3); speak('Turun, dobel');
+        try { if (navigator.vibrate) navigator.vibrate([250, 80, 250, 80, 250]); } catch (e) {}
+        flash('#dc2626', 1100); setCamStatus('WAJIB TURUN · SCAN GANDA!', 'err', 2600);
       } else if (type === 'dup') {
         beepScan(2); flash('#d97706', 300); setCamStatus('Sudah di-mark', 'warn', 1200);
       } else if (type === 'ok') {
@@ -1822,11 +1932,12 @@
         }
 
         const already = item.mark === 1;
+        const nScan = bumpCount(item.noFaktur);
         if (!already) { item.mark = 1; queueSync(item.noFaktur); }
-        const type = item.wajibTurun ? 'turun' : (already ? 'dup' : 'ok');
+        const type = item.wajibTurun ? (already ? 'turundup' : 'turun') : (already ? 'dup' : 'ok');
         signalScan(type);
-        addLog(code, type, item.wajibTurun ? 'WAJIB TURUN' : (already ? 'sudah' : 'ok'));
-        renderResult(item, already);
+        addLog(code, item.wajibTurun ? 'turun' : type, item.wajibTurun ? (already ? 'WAJIB TURUN · GANDA ×' + nScan : 'WAJIB TURUN') : (already ? 'sudah ×' + nScan : 'ok'));
+        renderResult(item, already, nScan);
         if (wrong) {   // wajib turun + salah rak: notif turun dulu, lalu salah rak
           addLog(code, 'rak', rakLog);
           const box = document.querySelector('#scanResult .result-box');
@@ -1867,10 +1978,11 @@
         }
         const idx = items.findIndex(i => i.noFaktur === data.noFaktur);
         if (idx >= 0) { items[idx].mark = 1; items[idx].wajibTurun = !!data.wajibTurun; }
-        const type = data.wajibTurun ? 'turun' : (data.alreadyMarked ? 'dup' : 'ok');
+        const nScan = bumpCount(data.noFaktur);
+        const type = data.wajibTurun ? (data.alreadyMarked ? 'turundup' : 'turun') : (data.alreadyMarked ? 'dup' : 'ok');
         signalScan(type);
-        addLog(code, type, data.wajibTurun ? 'WAJIB TURUN' : (data.alreadyMarked ? 'sudah' : 'ok'));
-        renderResult(data, data.alreadyMarked);
+        addLog(code, data.wajibTurun ? 'turun' : type, data.wajibTurun ? (data.alreadyMarked ? 'WAJIB TURUN · GANDA ×' + nScan : 'WAJIB TURUN') : (data.alreadyMarked ? 'sudah ×' + nScan : 'ok'));
+        renderResult(data, data.alreadyMarked, nScan);
         refreshStats();
         afterScanUi();
       } catch (e) {
@@ -2182,7 +2294,10 @@
       const now = Date.now();
       lastDecodeAt = now;
       // kode yang sama ditahan 2 detik (anti dobel), kode beda langsung diproses
-      if (c === lastScanned && now - lastScanTime < 2000) return;
+      if (c === lastScanned && now - lastScanTime < 2000) {   // tahan dobel, tapi beri tanda (jangan diam)
+        if (now >= camHoldUntil) setCamStatus('Kode sama baru saja di-scan · ' + c, 'warn', 700);
+        return;
+      }
       if (pendingPeriksa) { setCamStatus('Pilih dulu: Sesuai / Tidak Sesuai', 'warn', 900); return; }
       lastScanned = c;
       lastScanTime = now;
