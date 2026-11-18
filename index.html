@@ -1003,6 +1003,9 @@
     .sug-nm { display: block; font-size: .74rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: inherit; }
     .sug-i { min-width: 0; flex: 1; }
     .sug-row.done { opacity: .55; }
+    .stat .tbar { height: 5px; margin: 8px 0 0; background: #f6dcdc; }
+    .stat .tbar i { background: var(--success); display: block; height: 100%; border-radius: 99px; transition: width .3s; }
+    .stat .tbar-txt { font-size: .68rem; font-weight: 700; color: var(--muted); margin-top: 5px; }
     .sug-st { flex: 0 0 auto; font-size: .66rem; font-weight: 800; color: var(--success); }
 
     /* ---- modal "Tanggal awal pemeriksaan": rapi di HP ---- */
@@ -1046,6 +1049,8 @@
           <div class="stat turun">
             <div class="num" id="statTurun">0</div>
             <div class="label">Wajib Turun</div>
+            <div class="bar tbar"><i id="statTurunBar" style="width:0%"></i></div>
+            <div class="tbar-txt" id="statTurunTxt">0/0 diperiksa</div>
           </div>
         </div>
 
@@ -1905,6 +1910,10 @@
       document.getElementById('statTurun').textContent = items.filter(i => i.wajibTurun).length;
       renderKodeStats();
       updateLock();
+      { const t = items.filter(i => i.wajibTurun), d = t.filter(i => i.periksa).length;   // progres pemeriksaan barang wajib turun
+        const bar = document.getElementById('statTurunBar'), tx = document.getElementById('statTurunTxt');
+        if (bar) bar.style.width = (t.length ? Math.round(d * 100 / t.length) : 0) + '%';
+        if (tx) tx.textContent = d + '/' + t.length + ' diperiksa'; }
       renderGroup(); updateScanBar();
     }
 
