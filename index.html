@@ -896,6 +896,36 @@
     .dupwarn span { font-weight: 600; }
     .result-box.error .dupwarn { background: #fff; }
     @keyframes dupblink { 0%, 100% { transform: none; } 30% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(217,119,6,.25); } }
+
+    /* ============================================================
+       v13 — modal laptop muat satu layar (tanpa scroll)
+       ============================================================ */
+    @media (min-width: 700px) {
+      #remoteModal .remote-inner { max-width: 760px; width: 100%; }
+      #remoteModal .rm-head { padding: 12px 24px; }
+      #remoteModal .rm-ico { width: 32px; height: 32px; border-radius: 10px; }
+      #remoteModal .pc-head { padding: 14px 24px 14px; }
+      #remoteModal .pc-head .pc-nf { font-size: 1.5rem; }
+      #remoteModal .pc-head .pc-name { margin-top: 4px; }
+      #remoteModal .pc-head-top { margin-bottom: 2px; }
+      #remoteModal .pc-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; padding: 6px 24px; }
+      #remoteModal .pc-row { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 10px 0; }
+      #remoteModal .pc-row span { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+      #remoteModal .pc-row b { text-align: left; font-size: 1rem; }
+      #remoteModal .pc-row:nth-last-child(-n+2) { border-bottom: 0; }
+      #remoteModal .pcard .pc-prev { margin: 4px 24px 0; padding: 8px 12px; }
+      #remoteModal .pc-actions { margin-top: 12px; padding: 14px 24px 10px; }
+      #remoteModal .pcard .chk-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      #remoteModal .pcard .chk-actions .btn { min-height: 52px; }
+      #remoteModal .pcard .chk-actions .pl-choice { grid-column: auto; min-height: 52px; font-size: .95rem; }
+      #remoteModal .pcard .pc-skip { margin-top: 4px; padding: 8px; }
+    }
+    #remoteBody { max-height: 96vh; }
+    @media (min-width: 700px) and (max-height: 760px) {
+      #remoteModal .pc-head { padding: 10px 24px; } #remoteModal .pc-head .pc-nf { font-size: 1.3rem; }
+      #remoteModal .pc-row { padding: 7px 0; } #remoteModal .pc-actions { margin-top: 8px; padding: 10px 24px 6px; }
+      #remoteModal .pcard .chk-actions .btn, #remoteModal .pcard .chk-actions .pl-choice { min-height: 46px; }
+    }
   </style>
 </head>
 <body>
@@ -1427,14 +1457,22 @@
 
     function periksaCardHtml(it) {
       const isGG = String(it.kode || '').toUpperCase() === 'GG';
-      const name = (isGG ? [it.jenis, it.merk] : [it.jenis, it.merk, it.tipe]).filter(Boolean).join(' • ') || 'Barang';
+      const isGB = String(it.kode || '').toUpperCase() === 'GB';
+      const pick = (...ks) => { for (const k of ks) if (it[k] !== undefined && it[k] !== null && String(it[k]).trim() !== '') return it[k]; return ''; };
+      // GB: header cukup No Faktur + Jenis Barang; sisanya masuk kotak data
+      const name = isGB ? (it.jenis || 'Barang') : ((isGG ? [it.jenis, it.merk] : [it.jenis, it.merk, it.tipe]).filter(Boolean).join(' • ') || 'Barang');
       // GG: Kelengkapan, Cap, Logo, Tipe Barang, Berat Kering Emas, Potongan Berat Emas (urut)
-      const rows = isGG
+      const rows = isGB
+        ? [['Merk Barang', esc(it.merk || '-')], ['Tipe Barang', esc(it.tipe || '-')],
+           ['Tahun', esc(pick('tahun', 'thn', 'tahunPembuatan') || '-')], ['Packaging', esc(it.packaging || '-')],
+           ['No Polisi', esc(it.noPolisi || '-')], ['No BPKB', esc(pick('noBpkb', 'noBPKB', 'bpkb', 'BPKB') || '-')],
+           ['Kelengkapan', esc(it.kelengkapan || '-')], ['Spesifikasi', esc(it.spek || '-')]]
+        : isGG
         ? [['Kelengkapan', esc(it.kelengkapan || '-')], ['Cap', esc(it.cap || '-')], ['Logo', esc(it.logo || '-')],
            ['Tipe Barang', esc(it.tipe || '-')], ['Berat Kering Emas', esc(it.beratKering || '-')], ['Potongan Berat Emas', esc(it.potongan || '-')]]
         : [...(it.imei ? [['IMEI', imeiBold(it.imei)]] : []),
            ['No Model', esc(it.noModel || '-')], ['Spesifikasi', esc(it.spek || '-')], ['Kelengkapan', esc(it.kelengkapan || '-')]];
-      const spec = '<div class="pc-rows' + (isGG ? ' gg' : '') + '">' + rows.map(r => `<div class="pc-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>';
+      const spec = '<div class="pc-rows' + (isGG ? ' gg' : '') + (isGB ? ' gb' : '') + '">' + rows.map(r => `<div class="pc-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>';
       const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span>` : '';
       const prev = it.pl
         ? `<div class="pc-prev pl"><i></i><span>Status sebelumnya</span><b>Pelunasan (PL)</b></div>`
