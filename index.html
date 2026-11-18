@@ -926,6 +926,34 @@
       #remoteModal .pc-row { padding: 7px 0; } #remoteModal .pc-actions { margin-top: 8px; padding: 10px 24px 6px; }
       #remoteModal .pcard .chk-actions .btn, #remoteModal .pcard .chk-actions .pl-choice { min-height: 46px; }
     }
+
+    /* v14 — GE: baris ganjil (9 data) tetap rapi */
+    @media (min-width: 700px) { #remoteModal .pc-rows.odd .pc-row:nth-last-child(2) { border-bottom: 1px solid var(--border); } }
+
+    /* ============================================================
+       v15 — tombol Aksi (pojok kartu) + dialog konfirmasi PL
+       ============================================================ */
+    .pc-corner { position: relative; display: flex; align-items: center; gap: 8px; z-index: 6; }
+    .pc-aksi { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px 0 12px; border-radius: 99px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.14); color: #fff; font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer; transition: background .15s; }
+    .pc-aksi:hover { background: rgba(255,255,255,.24); }
+    .pc-aksi svg { width: 14px; height: 14px; }
+    .aksi-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 220px; padding: 6px; background: #fff; border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 40px rgba(10,23,48,.28); }
+    .aksi-menu.hidden { display: none !important; }
+    .aksi-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: .88rem; font-weight: 700; color: var(--warn-tx); cursor: pointer; text-align: left; }
+    .aksi-menu button:hover { background: var(--warn-bg); }
+    .aksi-menu svg { width: 18px; height: 18px; flex: 0 0 auto; }
+
+    .pcard .chk-actions, #remoteModal .pcard .chk-actions { grid-template-columns: 1fr 1fr; }
+
+    .pl-dialog { max-width: 400px !important; padding: 26px 24px 22px !important; text-align: center; }
+    .pl-ico { width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 16px; display: grid; place-items: center; background: var(--warn-bg); color: var(--warning); border: 1px solid var(--warn-bd); }
+    .pl-ico svg { width: 26px; height: 26px; }
+    .pl-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -.01em; }
+    .pl-nf { display: inline-block; margin: 10px 0 8px; padding: 5px 12px; border-radius: 9px; background: var(--soft2); font-family: var(--mono); font-weight: 800; font-size: .95rem; }
+    .pl-desc { font-size: .86rem; line-height: 1.5; color: var(--muted); margin-bottom: 18px; }
+    .pl-desc b { color: var(--text); }
+    .pl-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-pl { background: linear-gradient(135deg, #f5a524, #d97706); color: #fff; box-shadow: 0 6px 16px rgba(217,119,6,.32); }
   </style>
 </head>
 <body>
@@ -1049,6 +1077,16 @@
     <button class="btn btn-primary btn-block" id="btnDateApply" onclick="applyDateGate()">Tandai &amp; Mulai Scan</button>
     <button class="btn btn-outline btn-block" style="margin-top:8px" onclick="skipGate()">Sudah merah di spreadsheet, lewati</button>
     <button class="pc-skip" onclick="closeDateGate()">Batal</button>
+  </div></div>
+  <div class="remote-modal hidden" id="plModal" style="z-index:500" onclick="if(event.target===this)closePLConfirm()"><div class="remote-inner pl-dialog" role="dialog" aria-modal="true" aria-labelledby="plTitle">
+    <div class="pl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/></svg></div>
+    <div class="pl-title" id="plTitle">Tandai sebagai Pelunasan?</div>
+    <div class="pl-nf" id="plNf"></div>
+    <div class="pl-desc">Kolom <b>Mark</b> dan <b>Ket</b> di spreadsheet akan diisi <b>PL</b>, dan barang tidak lagi dihitung wajib turun.</div>
+    <div class="pl-btns">
+      <button class="btn btn-outline" type="button" onclick="closePLConfirm()">Batal</button>
+      <button class="btn btn-pl" type="button" onclick="confirmPL()">Ya, Tandai PL</button>
+    </div>
   </div></div>
   <div class="toast" id="toast"></div>
 
@@ -1460,7 +1498,7 @@
       const isGB = String(it.kode || '').toUpperCase() === 'GB';
       const pick = (...ks) => { for (const k of ks) if (it[k] !== undefined && it[k] !== null && String(it[k]).trim() !== '') return it[k]; return ''; };
       // GB: header cukup No Faktur + Jenis Barang; sisanya masuk kotak data
-      const name = isGB ? (it.jenis || 'Barang') : ((isGG ? [it.jenis, it.merk] : [it.jenis, it.merk, it.tipe]).filter(Boolean).join(' • ') || 'Barang');
+      const name = (isGB || !isGG) ? (it.jenis || 'Barang') : ((isGG ? [it.jenis, it.merk] : [it.jenis, it.merk, it.tipe]).filter(Boolean).join(' • ') || 'Barang');
       // GG: Kelengkapan, Cap, Logo, Tipe Barang, Berat Kering Emas, Potongan Berat Emas (urut)
       const rows = isGB
         ? [['Merk Barang', esc(it.merk || '-')], ['Tipe Barang', esc(it.tipe || '-')],
@@ -1470,9 +1508,12 @@
         : isGG
         ? [['Kelengkapan', esc(it.kelengkapan || '-')], ['Cap', esc(it.cap || '-')], ['Logo', esc(it.logo || '-')],
            ['Tipe Barang', esc(it.tipe || '-')], ['Berat Kering Emas', esc(it.beratKering || '-')], ['Potongan Berat Emas', esc(it.potongan || '-')]]
-        : [...(it.imei ? [['IMEI', imeiBold(it.imei)]] : []),
-           ['No Model', esc(it.noModel || '-')], ['Spesifikasi', esc(it.spek || '-')], ['Kelengkapan', esc(it.kelengkapan || '-')]];
-      const spec = '<div class="pc-rows' + (isGG ? ' gg' : '') + (isGB ? ' gb' : '') + '">' + rows.map(r => `<div class="pc-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>';
+        : [['Merk', esc(it.merk || '-')], ['Tipe', esc(it.tipe || '-')],
+           ['No Model', esc(it.noModel || '-')], ['IMEI', it.imei ? imeiBold(it.imei) : '-'],
+           ['Packaging', esc(it.packaging || '-')], ['Grade', esc(it.grade || '-')],
+           ['Status', esc(it.status || '-')], ['Kelengkapan', esc(it.kelengkapan || '-')],
+           ['Spesifikasi', esc(it.spek || '-')]];
+      const spec = '<div class="pc-rows' + (isGG ? ' gg' : '') + (isGB ? ' gb' : '') + (rows.length % 2 ? ' odd' : '') + '">' + rows.map(r => `<div class="pc-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>';
       const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span>` : '';
       const prev = it.pl
         ? `<div class="pc-prev pl"><i></i><span>Status sebelumnya</span><b>Pelunasan (PL)</b></div>`
@@ -1483,7 +1524,14 @@
       return `
         <div class="pcard">
           <div class="pc-head">
-            <div class="pc-head-top"><span class="pc-lbl">No Faktur</span>${tag}</div>
+            <div class="pc-head-top"><span class="pc-lbl">No Faktur</span>
+              <div class="pc-corner">${tag}
+                <button class="pc-aksi" type="button" aria-haspopup="true" onclick="toggleAksi(event)">Aksi<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+                <div class="aksi-menu hidden" id="aksiMenu" onclick="event.stopPropagation()">
+                  <button type="button" onclick="openPLConfirm()">${ICO_PL}<span>Tandai Pelunasan (PL)</span></button>
+                </div>
+              </div>
+            </div>
             <div class="pc-nf">${esc(it.noFaktur)}</div>
             <div class="pc-name">${esc(name)}</div>
           </div>
@@ -1493,7 +1541,6 @@
             <div class="chk-actions" id="periksaActions">
               <button class="btn btn-success" onclick="periksaOk()">${ICO_OK}Sesuai</button>
               <button class="btn btn-danger" onclick="periksaTidak()">${ICO_NO}Tidak Sesuai</button>
-              <button class="btn pl-choice" onclick="periksaPelunasan()">${ICO_PL}Pelunasan (PL)</button>
             </div>
             <div id="periksaForm" class="hidden">
               <input type="text" id="periksaTxt" class="search-box" maxlength="150" placeholder="Tulis keterangan ketidaksesuaian..." onkeydown="if(event.key==='Enter')periksaSave()" />
@@ -1564,6 +1611,22 @@
       if (!t) { toast('Isi keterangan dulu', 'error'); return; }
       finishPeriksa(it, 'tidak', t);
     }
+    // ----- Menu Aksi & konfirmasi Pelunasan -----
+    function toggleAksi(e) {
+      if (e) e.stopPropagation();
+      const m = document.getElementById('aksiMenu');
+      if (m) m.classList.toggle('hidden');
+    }
+    document.addEventListener('click', () => { const m = document.getElementById('aksiMenu'); if (m) m.classList.add('hidden'); });
+    function openPLConfirm() {
+      const it = pendingPeriksa;
+      const m = document.getElementById('aksiMenu'); if (m) m.classList.add('hidden');
+      if (!it) return;
+      document.getElementById('plNf').textContent = it.noFaktur;
+      document.getElementById('plModal').classList.remove('hidden');
+    }
+    function closePLConfirm() { document.getElementById('plModal').classList.add('hidden'); }
+    function confirmPL() { closePLConfirm(); periksaPelunasan(); }
     function periksaPelunasan() {
       const it = pendingPeriksa;
       if (it) finishPeriksa(it, 'pl', '');
