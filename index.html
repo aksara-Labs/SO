@@ -968,6 +968,33 @@
     .rakp-r { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
     .rakp-i { min-width: 0; flex: 1; } .rakp-nf { font-weight: 800; font-size: .88rem; word-break: break-all; } .rakp-nm { font-size: .76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .rakp .ibtns { display: flex; gap: 6px; }
+
+    /* ============================================================
+       v14 — scan per kelompok (GE / GB / GG)
+       ============================================================ */
+    .home-tools { display: flex; justify-content: flex-end; gap: 8px; }
+    .mini-btn { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--border); background: #fff; color: var(--muted); font-family: inherit; font-size: .76rem; font-weight: 700; line-height: 1; cursor: pointer; }
+    .mini-btn:active { transform: scale(.97); } .mini-btn:disabled { opacity: .55; }
+    .mini-btn.danger { color: var(--danger); }
+    .kcard[onclick] { cursor: pointer; transition: transform .12s; } .kcard[onclick]:active { transform: scale(.97); }
+    .kcard.done .bar i { background: var(--success); }
+    .grp-top { margin-bottom: 10px; }
+    .grp-back { border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 999px; padding: 7px 13px; font-family: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; flex: 0 0 auto; }
+    .grp-card { margin-bottom: 12px; }
+    .grp-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .grp-row .tag { font-size: .85rem; padding: 4px 10px; }
+    .grp-lbl { color: var(--muted); font-size: .82rem; font-weight: 600; }
+    .grp-row b { margin-left: auto; font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; }
+    .grp-row b small { font-size: .85rem; color: var(--muted); font-weight: 600; }
+    .grp-note { font-size: .8rem; color: var(--muted); margin: 10px 0 12px; line-height: 1.45; }
+    .grp-note.ok { color: var(--success); font-weight: 700; }
+    #grpPeriksa { margin-top: 8px; }
+    #grpList { max-height: none; overflow: visible; }
+    .sg-bar { display: flex; align-items: center; gap: 9px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; }
+    .sg-bar b { font-size: .95rem; font-weight: 800; } .sg-bar b small { color: var(--muted); font-size: .72rem; font-weight: 600; }
+    .sg-bar .bar { flex: 1; min-width: 30px; }
+    .no-rak #rakBar, .no-rak #rakPanel { display: none !important; }
+    @media (min-width: 900px) { .view-display .home-tools { grid-column: 1 / -1; } }
 </style>
 </head>
 <body>
@@ -1003,18 +1030,29 @@
 
         <div class="kode-grid" id="kodeStats"></div>
 
-        <div class="card">
-          <button class="btn btn-success btn-block" onclick="showPage('scan')">Mulai Scan</button>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="btn btn-outline btn-sm" id="btnRefresh" onclick="loadData()">Refresh</button>
-            <button class="btn btn-outline btn-sm" onclick="resetMarks()">Reset Mark</button>
-          </div>
+        <div class="home-tools">
+          <button class="mini-btn" id="btnRefresh" onclick="loadData()" title="Muat ulang data">&#8635; Refresh</button>
+          <button class="mini-btn danger" onclick="resetMarks()" title="Reset semua Mark">Reset Mark</button>
         </div>
       </div>
     </div>
 
+    <div id="page-group" class="page">
+      <div class="grp-top"><button class="grp-back" onclick="showPage('home')">&#8249; Kembali</button></div>
+      <div class="card grp-card k-GE" id="grpHead">
+        <div class="grp-row"><span class="tag" id="grpTag">GE</span><span class="grp-lbl">Kelompok</span><b id="grpCount">0</b></div>
+        <div class="bar"><i id="grpBar" style="width:0%"></i></div>
+        <div class="grp-note" id="grpNote"></div>
+        <button class="btn btn-success btn-block" id="grpStart" onclick="enterScan('scan')">Start</button>
+        <button class="btn btn-primary btn-block hidden" id="grpPeriksa" onclick="enterScan('periksa')">Mulai Pemeriksaan</button>
+      </div>
+      <div class="seg" id="grpSeg"></div>
+      <div class="item-list" id="grpList"></div>
+    </div>
+
     <div id="page-scan" class="page">
       <div class="card" id="scanCard">
+        <div class="sg-bar k-GE" id="sgBar"><button class="grp-back" onclick="backToGroup()">&#8249; Daftar</button><span class="tag" id="sgTag">GE</span><b id="sgCount">0</b><div class="bar"><i id="sgProg" style="width:0%"></i></div></div>
         <div class="seg"><button id="segScan" class="on" onclick="setMode('scan')">Scan</button><button id="segPeriksa" onclick="setMode('periksa')">Periksa Barang Turun</button></div>
         <div class="phead" id="periksaHead"><div class="ph-top"><b>Pemeriksaan barang turun</b><span id="phCount">0/0</span></div><div class="bar"><i id="phBar" style="width:0%"></i></div></div>
         <div class="done-banner hidden" id="doneBanner"><span>Semua barang sudah di-scan </span><button class="btn btn-success btn-sm" onclick="setMode('periksa')">Mulai Pemeriksaan</button></div>
@@ -1334,8 +1372,8 @@
     }, 0);
 
     function toggleSettings() {   // khusus HP: gear = buka/tutup pengaturan
-      const onScan = document.getElementById('page-scan').classList.contains('active');
-      showPage(onScan ? 'home' : 'scan');
+      const onHome = document.getElementById('page-home').classList.contains('active');
+      if (!onHome) showPage('home'); else if (scanGroup) showPage('group');
     }
 
     // Laptop: muat ulang diam-diam tiap 8 detik supaya hasil scan dari HP langsung kelihatan
@@ -1352,7 +1390,7 @@
       processKet();
       if (BACKEND_URL) {
         checkConnection();
-        showPage(VIEW === 'scanner' ? 'scan' : 'home');   // HP: langsung kamera; laptop: ringkasan
+        showPage('home');   // pilih kelompok (GE / GB / GG) dulu
       }
       document.getElementById('manualBarcode').addEventListener('keydown', e => {
         if (e.key === 'Enter') manualSearch(e.target.value);
@@ -1482,13 +1520,15 @@
     }
 
     // ===== PEMERIKSAAN barang wajib turun: scan ulang -> Sesuai (Ket: OK) / Tidak sesuai (isi keterangan) =====
-    let scanMode = 'scan', pendingPeriksa = null, promptedAll = false, periksaHold = false;
+    let scanMode = 'scan', pendingPeriksa = null, promptedGrp = {}, periksaHold = false;
+    let scanGroup = null;   // kelompok yang sedang dikerjakan: 'GE' | 'GB' | 'GG' (null = semua)
+    const inGrp = i => !scanGroup || i.kode === scanGroup;
 
-    const turunList = () => items.filter(i => i.wajibAsli);   // termasuk yang sudah PL (pelunasan)
+    const turunList = () => items.filter(i => i.wajibAsli && inGrp(i));   // termasuk yang sudah PL (pelunasan)
     const periksaDone = i => !!(i.periksa || i.pl || i.rec);
     const allPeriksaDone = () => { const l = turunList(); return l.length > 0 && l.every(periksaDone); };
 
-    const belumScan = () => items.filter(i => !i.pl && !i.rec && i.mark !== 1).length;
+    const belumScan = () => items.filter(i => inGrp(i) && !i.pl && !i.rec && i.mark !== 1).length;
     function updateLock() {
       const b = document.getElementById('segPeriksa');
       if (!b) return;
@@ -1501,7 +1541,7 @@
       if (m === 'periksa') {   // pemeriksaan baru boleh dimulai kalau semua barang sudah di-scan
         const rest = belumScan();
         if (!items.length) { toast('Muat data dulu di Home', 'warning'); return; }
-        if (rest > 0) { toast('Belum bisa periksa: masih ' + rest + ' barang belum di-scan', 'warning'); return; }
+        if (rest > 0) { toast('Belum bisa periksa: masih ' + rest + ' barang ' + (scanGroup || '') + ' belum di-scan', 'warning'); return; }
       }
       scanMode = m;
       pendingPeriksa = null; periksaHold = false;
@@ -1541,11 +1581,12 @@
     }
 
     function checkAllDone() {
-      if (promptedAll || scanMode === 'periksa' || !items.length) return;
-      if (items.every(i => i.pl || i.rec || i.mark === 1)) {
-        promptedAll = true;
+      const pk = scanGroup || 'all', g = items.filter(inGrp);
+      if (promptedGrp[pk] || scanMode === 'periksa' || !g.length) return;
+      if (g.every(i => i.pl || i.rec || i.mark === 1)) {
+        promptedGrp[pk] = true;
         document.getElementById('doneBanner').classList.remove('hidden');
-        toast('Semua barang sudah di-scan. Lanjut pemeriksaan!', 'success');
+        toast('Semua ' + (scanGroup || 'barang') + ' sudah di-scan. Lanjut pemeriksaan!', 'success');
       }
     }
 
@@ -1821,7 +1862,7 @@
         const plN = all.length - a.length;
         const m = a.filter(i => i.mark === 1).length;
         const p = a.length ? Math.round(m * 100 / a.length) : 0;
-        return `<div class="kcard k-${k}"><div class="kh"><span class="tag">${k}</span><b>${m}<small>/${a.length}</small></b>${plN ? `<small style="color:#92400e">PL ${plN}</small>` : ''}</div><div class="bar"><i style="width:${p}%"></i></div></div>`;
+        return `<div class="kcard k-${k}${a.length && m >= a.length ? ' done' : ''}" role="button" tabindex="0" onclick="openGroup('${k}')"><div class="kh"><span class="tag">${k}</span><b>${m}<small>/${a.length}</small></b>${plN ? `<small style="color:#92400e">PL ${plN}</small>` : ''}</div><div class="bar"><i style="width:${p}%"></i></div></div>`;
       }).join('');
       KODES.forEach(k => {
         const el = document.getElementById('cnt-' + k);
@@ -1842,6 +1883,7 @@
       document.getElementById('statTurun').textContent = items.filter(i => i.wajibTurun).length;
       renderKodeStats();
       updateLock();
+      renderGroup(); updateScanBar();
     }
 
     // Bersihkan hasil scan (hapus bintang * dan karakter non-digit)
@@ -2112,7 +2154,7 @@
       v = cleanBarcode(v);
       if (!v) return;
       if (itemIndex.has(v.toUpperCase()) || v.length >= 12) { doScan(v); return; }   // No Faktur lengkap
-      const cand = items.filter(i => !i.pl && !i.rec && cleanBarcode(i.noFaktur).endsWith(v));
+      const cand = items.filter(i => inGrp(i) && !i.pl && !i.rec && cleanBarcode(i.noFaktur).endsWith(v));
       const belum = cand.filter(i => i.mark !== 1);
       const pick = belum.length ? belum : cand;
       const el = document.getElementById('scanResult');
@@ -2135,6 +2177,8 @@
     async function doScan(code) {
       code = cleanBarcode(code);
       if (!code) return;
+      { const g0 = itemIndex.get(code.toUpperCase());
+        if (g0 && scanGroup && g0.kode && g0.kode !== scanGroup) return wrongGroup(code, g0); }
       if (scanMode === 'periksa') return doPeriksa(code);
       const resultEl = document.getElementById('scanResult');
 
@@ -2559,6 +2603,21 @@
       renderList();
     }
 
+    function itemRowHtml(i) {
+        const name = [i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || 'Tanpa Nama';
+        const kc = KODES.includes(i.kode) ? 'k-' + i.kode : '';
+        return `
+          <div class="item ${kc} ${i.mark === 1 ? 'marked' : ''} ${i.wajibTurun ? 'wajib' : ''} ${(i.pl || i.rec) ? 'pl' : ''}">
+            <div class="check">${i.mark === 1 ? '✓' : ''}</div>
+            <div class="info">
+              <div class="top"><span class="tag">${esc(i.kode || '-')}</span>${i.pl ? '<span class="tag tag-pl">PL</span>' : ''}${i.rec ? '<span class="tag tag-pl">REC</span>' : ''}<span class="nf">${esc(i.noFaktur)}</span>${i.rakItem && i.rak ? '<span class="rak-chip">Rak ' + i.rak + '</span>' : ''}${i.wajibTurun ? (i.periksa ? `<span class="pstat ${i.periksa === 'ok' ? 'ok' : 'bad'}" style="margin-left:auto">${i.periksa === 'ok' ? 'SESUAI' : 'TIDAK SESUAI'}</span>` : '<span class="badge-turun">TURUN</span>') : ''}</div>
+              <div class="name">${esc(name)}</div>
+              <div class="meta">${i.imei ? 'IMEI: ' + esc(i.imei) : (i.noPolisi ? 'Polisi: ' + esc(i.noPolisi) : '')}</div>
+            </div>
+            <div class="ibtns">${(i.mark !== 1 && !i.pl && !i.rec) ? `<button class="pl-btn" data-nf="${esc(i.noFaktur)}" onclick="markManual(this.dataset.nf)">Ada</button>` : ''}<button class="pl-btn ${i.pl ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="togglePL(this.dataset.nf)">${i.pl ? 'Batal PL' : 'PL'}</button>${(i.wajibAsli && !i.rec) ? '' : `<button class="pl-btn ${i.rec ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="toggleRec(this.dataset.nf)">${i.rec ? 'Batal Rec' : 'Rec'}</button>`}</div>
+          </div>`;
+      }
+
     function renderList() {
       const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
       let list = items;
@@ -2583,20 +2642,7 @@
         return;
       }
 
-      el.innerHTML = `<div class="count">${list.length} data${list.length > 250 ? ' (tampil 250 pertama, persempit dengan filter / cari)' : ''}</div>` + list.slice(0, 250).map(i => {
-        const name = [i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || 'Tanpa Nama';
-        const kc = KODES.includes(i.kode) ? 'k-' + i.kode : '';
-        return `
-          <div class="item ${kc} ${i.mark === 1 ? 'marked' : ''} ${i.wajibTurun ? 'wajib' : ''} ${(i.pl || i.rec) ? 'pl' : ''}">
-            <div class="check">${i.mark === 1 ? '✓' : ''}</div>
-            <div class="info">
-              <div class="top"><span class="tag">${esc(i.kode || '-')}</span>${i.pl ? '<span class="tag tag-pl">PL</span>' : ''}${i.rec ? '<span class="tag tag-pl">REC</span>' : ''}<span class="nf">${esc(i.noFaktur)}</span>${i.rakItem && i.rak ? '<span class="rak-chip">Rak ' + i.rak + '</span>' : ''}${i.wajibTurun ? (i.periksa ? `<span class="pstat ${i.periksa === 'ok' ? 'ok' : 'bad'}" style="margin-left:auto">${i.periksa === 'ok' ? 'SESUAI' : 'TIDAK SESUAI'}</span>` : '<span class="badge-turun">TURUN</span>') : ''}</div>
-              <div class="name">${esc(name)}</div>
-              <div class="meta">${i.imei ? 'IMEI: ' + esc(i.imei) : (i.noPolisi ? 'Polisi: ' + esc(i.noPolisi) : '')}</div>
-            </div>
-            <div class="ibtns">${(i.mark !== 1 && !i.pl && !i.rec) ? `<button class="pl-btn" data-nf="${esc(i.noFaktur)}" onclick="markManual(this.dataset.nf)">Ada</button>` : ''}<button class="pl-btn ${i.pl ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="togglePL(this.dataset.nf)">${i.pl ? 'Batal PL' : 'PL'}</button>${(i.wajibAsli && !i.rec) ? '' : `<button class="pl-btn ${i.rec ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="toggleRec(this.dataset.nf)">${i.rec ? 'Batal Rec' : 'Rec'}</button>`}</div>
-          </div>`;
-      }).join('');
+      el.innerHTML = `<div class="count">${list.length} data${list.length > 250 ? ' (tampil 250 pertama, persempit dengan filter / cari)' : ''}</div>` + list.slice(0, 250).map(itemRowHtml).join('');
     }
 
     async function resetMarks() {
@@ -2604,7 +2650,7 @@
       try {
         const data = await api('reset');
         if (data.ok) {
-          syncQueue.length = 0; failedJobs = []; updateSyncStatus(); promptedAll = false;
+          syncQueue.length = 0; failedJobs = []; updateSyncStatus(); promptedGrp = {};
           items.forEach(i => i.mark = 0);
           updateStats({ total: items.length, marked: 0, wajibTurunCount: items.filter(i => i.wajibTurun).length });
           renderList();
@@ -2640,7 +2686,7 @@
         if (!items.length) { toast('Data belum termuat, cek koneksi', 'error'); return; }
         const red = items.filter(i => i.wajibAsli).length;
         // Keputusan HANYA dari isi spreadsheet: ada merah -> langsung scan; tidak ada merah -> selalu tanya tanggal
-        if (red > 0) { scanGateOk = true; showPage('scan'); }
+        if (red > 0) { scanGateOk = true; showPage(gateNext); }
         else openDateGate();
       } finally { gateBusy = false; }
     }
@@ -2652,7 +2698,7 @@
     }
     function closeDateGate() { document.getElementById('dateModal').classList.add('hidden'); }
     function skipGate() {   // spreadsheet sebenarnya sudah ditandai: lanjut scan, tidak ditanya lagi hari ini
-      markGateToday(); scanGateOk = true; closeDateGate(); showPage('scan');
+      markGateToday(); scanGateOk = true; closeDateGate(); showPage(gateNext);
     }
     function updateDatePreview() {
       const el = document.getElementById('datePreview');
@@ -2681,7 +2727,7 @@
         closeDateGate();
         while (window.__loading) await sleep(200);
         await loadData(true);
-        showPage('scan');
+        showPage(gateNext);
       } catch (e) {
         toast('Gagal menandai: ' + e.message, 'error');
       } finally {
@@ -2690,7 +2736,8 @@
     }
 
     function showPage(page) {
-      if (page === 'scan' && !scanGateOk && BACKEND_URL) { gateThenScan(); return; }
+      if (page === 'scan' && !scanGroup) page = 'home';   // kamera hanya lewat kelompok (GE/GB/GG)
+      if ((page === 'scan' || page === 'group') && !scanGateOk && BACKEND_URL) { gateNext = page; gateThenScan(); return; }
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById('page-' + page).classList.add('active');
       document.querySelectorAll('.nav-item').forEach(n => {
@@ -2698,7 +2745,90 @@
       });
       if (page !== 'scan' && isScanning) stopScan();
       if (page === 'list') renderList();
-      if (page === 'scan') startScan();   // kamera otomatis nyala
+      if (page === 'group') renderGroup();
+      if (page === 'scan') {   // kamera otomatis nyala (Scan atau Periksa, sesuai tombol yang diklik)
+        applyScanGroup();
+        const m = pendingMode || 'scan'; pendingMode = null;
+        setMode(m);
+      }
+    }
+
+    // ===== SCAN PER KELOMPOK: ketuk GE / GB / GG -> daftar + Start -> kamera =====
+    let grpView = 'belum', pendingMode = null, gateNext = 'group';
+    function grpStats(k) {
+      const all = items.filter(i => i.kode === k);
+      const target = all.filter(i => !((i.pl || i.rec) && i.mark !== 1));   // sama dengan kartu di Home
+      return { all, total: target.length, done: target.filter(i => i.mark === 1).length, pending: all.filter(i => !i.pl && !i.rec && i.mark !== 1) };
+    }
+    function openGroup(k) {
+      if (!KODES.includes(k)) return;
+      if (VIEW === 'display') { setKode(k); showPage('list'); return; }   // laptop: pantau saja
+      scanGroup = k; grpView = 'belum';
+      showPage('group');
+    }
+    function setGrpView(v) { grpView = v; renderGroup(); }
+    function renderGroup() {
+      const pg = document.getElementById('page-group');
+      if (!pg || !scanGroup || !pg.classList.contains('active')) return;
+      const k = scanGroup, s = grpStats(k);
+      const complete = s.all.length > 0 && s.pending.length === 0;
+      document.getElementById('grpHead').className = 'card grp-card k-' + k;
+      document.getElementById('grpTag').textContent = k;
+      document.getElementById('grpCount').innerHTML = s.done + '<small>/' + s.total + '</small>';
+      document.getElementById('grpBar').style.width = (s.total ? Math.round(s.done * 100 / s.total) : 0) + '%';
+      const note = document.getElementById('grpNote');
+      if (complete) {
+        const t = s.all.filter(i => i.wajibAsli), td = t.filter(periksaDone).length;
+        note.className = 'grp-note ok';
+        note.textContent = 'Semua ' + k + ' sudah di-scan' + (t.length ? ' · Pemeriksaan barang turun ' + td + '/' + t.length : '');
+      } else {
+        note.className = 'grp-note';
+        note.textContent = 'Sisa ' + s.pending.length + ' belum di-scan. Pemeriksaan dibuka setelah semua ' + k + ' ter-scan.';
+      }
+      document.getElementById('grpPeriksa').classList.toggle('hidden', !complete);
+      const sudah = s.all.filter(i => i.mark === 1);
+      const seg = [['belum', 'Belum (' + s.pending.length + ')'], ['sudah', 'Sudah (' + sudah.length + ')'], ['semua', 'Semua (' + s.all.length + ')']];
+      document.getElementById('grpSeg').innerHTML = seg.map(x => '<button class="' + (grpView === x[0] ? 'on' : '') + '" onclick="setGrpView(\'' + x[0] + '\')">' + x[1] + '</button>').join('');
+      const list = grpView === 'belum' ? s.pending : grpView === 'sudah' ? sudah : s.all;
+      const el = document.getElementById('grpList');
+      if (!list.length) { el.innerHTML = '<div class="empty"><b>' + (grpView === 'belum' ? 'Semua ' + k + ' sudah ter-scan' : 'Tidak ada data') + '</b></div>'; return; }
+      el.innerHTML = '<div class="count">' + list.length + ' data' + (list.length > 120 ? ' (tampil 120 pertama)' : '') + '</div>' + list.slice(0, 120).map(itemRowHtml).join('');
+    }
+    function enterScan(mode) {
+      if (!scanGroup) return;
+      if (mode === 'periksa') {
+        const rest = belumScan();
+        if (rest > 0) { toast('Belum bisa periksa: masih ' + rest + ' ' + scanGroup + ' belum di-scan', 'warning'); return; }
+      }
+      pendingMode = mode;
+      showPage('scan');
+    }
+    function backToGroup() {
+      if (pendingPeriksa) unpend(pendingPeriksa.noFaktur);
+      pendingPeriksa = null; periksaHold = false;
+      document.getElementById('scanCard').classList.remove('pcard-on');
+      document.getElementById('scanResult').innerHTML = '';
+      showPage('group');   // kamera ikut mati
+    }
+    function applyScanGroup() {
+      document.getElementById('scanCard').classList.toggle('no-rak', scanGroup !== 'GE');   // Mode Rak hanya untuk GE
+      updateScanBar();
+    }
+    function updateScanBar() {
+      const bar = document.getElementById('sgBar');
+      if (!bar || !scanGroup) return;
+      const s = grpStats(scanGroup);
+      bar.className = 'sg-bar k-' + scanGroup;
+      document.getElementById('sgTag').textContent = scanGroup;
+      document.getElementById('sgCount').innerHTML = s.done + '<small>/' + s.total + '</small>';
+      document.getElementById('sgProg').style.width = (s.total ? Math.round(s.done * 100 / s.total) : 0) + '%';
+    }
+    function wrongGroup(code, it) {   // barang dari kelompok lain: tidak di-mark
+      beep(false); flash('#e11d48', 600);
+      setCamStatus('Bukan ' + scanGroup + ' — ini ' + it.kode, 'err', 2200);
+      addLog(code, 'err', 'bukan ' + scanGroup + ' (' + it.kode + ')');
+      document.getElementById('manualBarcode').value = '';
+      if (scanMode !== 'periksa') document.getElementById('scanResult').innerHTML = '<div class="result-box error"><div class="res-top"><span class="res-nf">' + esc(it.noFaktur) + '</span><span class="tag k-' + esc(it.kode) + '">' + esc(it.kode) + '</span></div><div class="title">BUKAN KELOMPOK ' + esc(scanGroup) + '</div><div class="detail">Barang ini kelompok <b>' + esc(it.kode) + '</b>, tidak di-mark. Scan lewat kelompok ' + esc(it.kode) + '.</div></div>';
     }
 
     function esc(str) {
