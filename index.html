@@ -961,7 +961,14 @@
     .pc-prev.rec { background: #eaf1ff; border-color: #bcd0fb; } .pc-prev.rec i { background: var(--brand); } .pc-prev.rec b { color: #1d4ed8; }
     .ibtns { display: flex; flex-direction: column; gap: 6px; align-self: center; flex: 0 0 auto; }
     .ibtns .pl-btn { align-self: stretch; text-align: center; }
-  </style>
+      .rakp { margin-top: 12px; border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: var(--card); }
+    .rakp-h { display: flex; align-items: center; gap: 8px; } .rakp-h b { font-size: .95rem; } .rakp-h span { color: var(--muted); font-size: .8rem; } .rakp-h button { margin-left: auto; }
+    .rakp-t { margin: 10px 0 4px; font-weight: 700; font-size: .82rem; color: var(--danger); }
+    .rakp-n { margin-top: 8px; font-size: .85rem; color: var(--muted); } .rakp-n.ok { color: var(--success); font-weight: 700; }
+    .rakp-r { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+    .rakp-i { min-width: 0; flex: 1; } .rakp-nf { font-weight: 800; font-size: .88rem; word-break: break-all; } .rakp-nm { font-size: .76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rakp .ibtns { display: flex; gap: 6px; }
+</style>
 </head>
 <body>
   <div class="header">
@@ -1023,6 +1030,7 @@
           <input type="text" id="manualBarcode" placeholder="Ketik No Faktur (angka)..." inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="search" oninput="this.value=this.value.replace(/\D/g,'')" />
           <button class="btn btn-primary" onclick="manualSearch(document.getElementById('manualBarcode').value)">Cari</button>
         </div>
+        <div id="rakPanel" class="hidden"></div>
         <div id="scanLog"></div>
         <div id="periksaBox" class="hidden"></div>
       </div>
@@ -1122,15 +1130,57 @@
     function setRak(v) {
       rakSel = parseInt(v, 10) || 0;
       try { localStorage.setItem('stockScan_rak', rakSel); } catch (e) {}
+      const rs = document.getElementById('rakSelect'); if (rs) rs.value = String(rakSel);
       renderRakInfo();
     }
-    function renderRakInfo() {
+    function renderRakInfo() { renderRakInfo0(); rakAfterChange(); }
+    function renderRakInfo0() {
       const bar = document.getElementById('rakBar'), info = document.getElementById('rakInfo');
       if (!bar) return;
       bar.classList.toggle('on', !!rakSel);
       if (!rakSel) { info.textContent = 'Pilih nomor rak untuk cek tanggal faktur'; return; }
       const a = items.filter(i => i.rakItem && i.rak === rakSel);
       info.textContent = 'Rak ' + rakSel + ' · ' + a.filter(i => i.mark === 1).length + '/' + a.length + ' sudah di-scan';
+    }
+    // ===== Rak otomatis: rak selesai -> pindah ke rak berikutnya; sisa belum ter-scan tampil di bawah =====
+    let rakPrev = { rak: 0, n: 0 };
+    function rakPending(r) { return items.filter(i => i.rakItem && i.rak === r && i.mark !== 1 && !i.pl && !i.rec); }
+    function rakNext(auto) {
+      for (let r = rakSel + 1; r <= 31; r++) {
+        if (rakPending(r).length) {
+          const from = rakSel;
+          setRak(r);
+          toast('Rak ' + from + (auto ? ' selesai' : ' dilewati') + ' → Rak ' + r, auto ? 'success' : 'warning');
+          return;
+        }
+      }
+      toast(auto ? 'Semua rak selesai' : 'Tidak ada rak berikutnya', auto ? 'success' : 'warning');
+    }
+    function rakAfterChange() {
+      const el = document.getElementById('rakPanel');
+      if (!el) return;
+      if (!rakSel || scanMode === 'periksa') { el.classList.add('hidden'); el.innerHTML = ''; rakPrev = { rak: 0, n: 0 }; return; }
+      const a = items.filter(i => i.rakItem && i.rak === rakSel);
+      const pend = rakPending(rakSel);
+      if (items.length && a.length && !pend.length && rakPrev.rak === rakSel && rakPrev.n > 0) {   // baru saja selesai
+        rakPrev = { rak: rakSel, n: 0 };
+        rakNext(true);
+        if (!pend.length && rakPending(rakSel).length === 0) { /* tidak ada rak lain: tetap di sini */ }
+        return;
+      }
+      rakPrev = { rak: rakSel, n: pend.length };
+      const done = a.filter(i => i.mark === 1).length;
+      let html = '<div class="rakp"><div class="rakp-h"><b>Rak ' + rakSel + '</b><span>' + done + '/' + a.length + '</span><button class="btn btn-outline btn-sm" onclick="rakNext(false)">' + (pend.length ? 'Lewati rak ›' : 'Rak berikutnya ›') + '</button></div>';
+      if (!a.length) html += '<div class="rakp-n">Rak kosong</div>';
+      else if (!pend.length) html += '<div class="rakp-n ok">Semua sudah ter-scan</div>';
+      else {
+        html += '<div class="rakp-t">Belum ter-scan (' + pend.length + ')</div>' + pend.slice(0, 40).map(i =>
+          '<div class="rakp-r"><div class="rakp-i"><div class="rakp-nf">' + esc(i.noFaktur) + '</div><div class="rakp-nm">' + esc([i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || '-') + '</div></div>' +
+          '<div class="ibtns"><button class="pl-btn" data-nf="' + esc(i.noFaktur) + '" onclick="togglePL(this.dataset.nf)">PL</button><button class="pl-btn" data-nf="' + esc(i.noFaktur) + '" onclick="markManual(this.dataset.nf)">Ada</button></div></div>').join('') +
+          (pend.length > 40 ? '<div class="rakp-n">+' + (pend.length - 40) + ' lainnya</div>' : '');
+      }
+      el.innerHTML = html + '</div>';
+      el.classList.remove('hidden');
     }
     function renderRakWrong(it) {
       const name = [it.jenis, it.merk, it.tipe].filter(Boolean).join(' • ') || 'Barang';
@@ -1461,6 +1511,7 @@
       document.getElementById('segScan').classList.toggle('on', m === 'scan');
       document.getElementById('segPeriksa').classList.toggle('on', m === 'periksa');
       document.getElementById('rakBar').classList.toggle('hidden', m === 'periksa');
+      rakAfterChange();
       document.getElementById('periksaBox').classList.toggle('hidden', m !== 'periksa');
       document.getElementById('doneBanner').classList.add('hidden');
       document.getElementById('scanResult').innerHTML = '';
@@ -1808,6 +1859,7 @@
       items.forEach(i => {
         i.rak = fakturDay(cleanBarcode(i.noFaktur));
         i.ketSalah = /salah rak/i.test(i.ket || '');
+        { const sm = /salah rak di rak (\d+)/i.exec(i.ket || ''); i.ketSalahRak = sm ? +sm[1] : 0; }
         const km = /tidak sesuai:\s*([^|]*)/i.exec(i.ket || '');
         i.periksa = km ? 'tidak' : (/(^|\|)\s*ok\s*(\||$)/i.test(i.ket || '') ? 'ok' : '');
         i.periksaTxt = km ? km[1].trim() : '';
@@ -2094,7 +2146,10 @@
         const rakMsg = item.rak ? 'pindah ke rak ' + item.rak : 'tanggal faktur tak terbaca';
         const rakLog = item.rak ? 'salah rak → ' + item.rak : 'tgl tak terbaca';
         // catatan di kolom Ket: tulis "Salah rak"; hapus lagi kalau nanti discan di rak yang benar
-        if (wrong && item.rak && !item.ketSalah) { item.ketSalah = true; queueKet(item.noFaktur, 'Salah rak'); }
+        if (wrong && item.rak && (!item.ketSalah || item.ketSalahRak !== rakSel)) {   // Ket: salah rak + ditemukan di rak berapa
+          item.ketSalah = true; item.ketSalahRak = rakSel;
+          queueKet(item.noFaktur, 'Salah rak di rak ' + rakSel + ' (harusnya ' + item.rak + ')');
+        }
         if (!wrong && rakSel && item.rakItem && item.ketSalah) { item.ketSalah = false; queueKet(item.noFaktur, ''); }
 
         if (wrong && !item.wajibTurun) {
