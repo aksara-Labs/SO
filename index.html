@@ -847,6 +847,9 @@
     .pc-rows { padding: 4px 18px; }
     .pc-row { display: grid; grid-template-columns: minmax(104px, 40%) minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--border); }
     .pc-row:last-child { border-bottom: 0; }
+    /* nilai panjang (Kelengkapan, Spesifikasi, Tipe, dst): label di atas, isi memakai lebar penuh supaya tidak turun-turun ke bawah */
+    .pc-row.long { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+    .pc-row.long b { text-align: left; }
     .pc-row span { font-size: .78rem; font-weight: 600; color: var(--muted); }
     .pc-row b { font-size: .95rem; font-weight: 700; color: var(--text); text-align: right; overflow-wrap: anywhere; line-height: 1.35; }
 
@@ -1712,7 +1715,7 @@
            ['Packaging', esc(it.packaging || '-')], ['Grade', esc(it.grade || '-')],
            ['Status', esc(it.status || '-')], ['Kelengkapan', esc(it.kelengkapan || '-')],
            ['Spesifikasi', esc(it.spek || '-')]];
-      const spec = '<div class="pc-rows' + (isGG ? ' gg' : '') + (isGB ? ' gb' : '') + (rows.length % 2 ? ' odd' : '') + '">' + rows.map(r => `<div class="pc-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>';
+      const spec = '<div class="pc-rows' + (isGG ? ' gg' : '') + (isGB ? ' gb' : '') + (rows.length % 2 ? ' odd' : '') + '">' + rows.map(r => `<div class="pc-row${String(r[1]).replace(/<[^>]*>/g, '').length > 20 ? ' long' : ''}"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>';
       const tag = it.kode ? `<span class="tag k-${esc(it.kode)}">${esc(it.kode)}</span>` : '';
       const prev = it.rec
         ? `<div class="pc-prev rec"><i></i><span>Status sebelumnya</span><b>Reclaim (Rec)</b></div>`
