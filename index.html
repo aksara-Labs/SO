@@ -1026,6 +1026,24 @@
     .plist .pseg { margin: 4px 0 8px; }
     .home-tools { margin-top: 0; }
     @media (min-width: 900px) { .view-display .kc-num { font-size: 1.8rem; } .view-display .kc-cap { font-size: .8rem; } .view-display #kodeStats .kcard { padding: 16px 18px; } }
+    .item .name, .item .meta { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; }
+    .item .info { min-width: 0; }
+    .sug-nm { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; }
+    .sug-ex { display: block; font-size: .78rem; margin-top: 3px; color: var(--muted); word-break: break-word; }
+    .sug-ex b, .sug-ex strong { color: var(--text); }
+    .sug-nf .hl { color: var(--text); font-weight: 900; font-size: 1.05em; }
+    .pc-notice { margin: 10px 0 2px; padding: 11px 13px 11px; background: #fff7e6; border: 1px solid #f3cf83; border-left: 4px solid #e29a10; border-radius: 12px; }
+    .pc-notice-h { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: .88rem; color: #92400e; }
+    .pc-notice-h svg { width: 18px; height: 18px; flex: 0 0 auto; }
+    .pc-notice-s { font-size: .74rem; color: #a16207; margin: 2px 0 6px 25px; }
+    .pc-notice ul { margin: 0; padding: 0; list-style: none; }
+    .pc-notice li { position: relative; padding: 5px 0 5px 16px; font-size: .86rem; line-height: 1.4; color: #6b3a05; font-weight: 600; }
+    .pc-notice li::before { content: ""; position: absolute; left: 3px; top: 12px; width: 6px; height: 6px; border-radius: 50%; background: #e29a10; }
+    .pc-notice li + li { border-top: 1px dashed #f0d9a3; }
+    .torch.pause { left: 10px; right: auto; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .torch.pause svg { width: 18px; height: 18px; }
+    .cam-pause { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; text-align: center; background: rgba(6,13,28,.78); color: #fff; cursor: pointer; }
+    .cam-pause b { display: block; font-size: 1.05rem; } .cam-pause span { display: block; font-size: .82rem; opacity: .8; margin-top: 4px; }
     .sug-st { flex: 0 0 auto; font-size: .66rem; font-weight: 800; color: var(--success); }
 
     /* ---- modal "Tanggal awal pemeriksaan": rapi di HP ---- */
@@ -1106,12 +1124,12 @@
           <div><div class="rak-title">Mode Rak <small>GE selain TV</small></div><div class="rak-info" id="rakInfo"></div></div>
           <select id="rakSelect" onchange="setRak(this.value)"></select>
         </div>
-        <div id="camWrap" onclick="refocus()"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></button><button id="btnZoom" class="torch zoom hidden" onclick="event.stopPropagation();toggleZoom()">1×</button><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
+        <div id="camWrap" onclick="refocus()"><video id="cam" playsinline muted autoplay></video><div class="aim"></div><div id="camFlash"></div><button id="btnTorch" class="torch hidden" onclick="toggleTorch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></button><button id="btnZoom" class="torch zoom hidden" onclick="event.stopPropagation();toggleZoom()">1×</button><button id="btnPause" class="torch pause" onclick="event.stopPropagation();togglePause()" title="Jeda scan"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg></button><div id="camPause" class="cam-pause hidden" onclick="event.stopPropagation();setPause(false)"><div><b>Scan dijeda</b><span>Ketuk untuk lanjut</span></div></div><div id="camStatus" class="cam-status">Kamera belum aktif</div></div>
         <div id="scanResult"></div>
         <button class="btn btn-primary btn-block" id="btnStartScan" onclick="toggleScan()">Mulai Kamera</button>
         <div class="sync-status" id="syncStatus" onclick="retryFailed()"></div>
         <div class="manual-input" id="manualWrap">
-          <input type="text" id="manualBarcode" placeholder="Ketik No Faktur (angka)..." inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="search" oninput="this.value=this.value.replace(/\D/g,'');renderSuggest(this.value)" />
+          <input type="text" id="manualBarcode" placeholder="Ketik No Faktur (angka)..." inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="search" oninput="this.value=this.value.replace(/\D/g,'');typingUntil=Date.now()+1500;renderSuggest(this.value)" />
           <button class="btn btn-primary" onclick="manualSearch(document.getElementById('manualBarcode').value)">Cari</button>
         </div>
         <div id="manualSuggest" class="sug-box hidden"></div>
@@ -1283,6 +1301,8 @@
     let zxFallN = 0, zoomPref = 1, zoomMax = 1, zoomNow = 1;
     let torchPref = false;   // pilihan flash terakhir: kamera dibuka lagi -> flash ikut seperti sebelumnya
     let lastScanned = '', lastScanTime = 0, lastDecodeAt = 0;
+    let scanPaused = false, holdCode = '', holdSince = 0, holdLast = 0;
+    const HOLD_MS = 300;   // barcode harus tertahan stabil di kotak bidik selama ini sebelum diproses
     let camHoldUntil = 0, camStatusKey = '';
     const scanLogs = [];
     const IDLE_OK = 'Arahkan ke barcode / QR';
@@ -1644,6 +1664,33 @@
       return esc(v.slice(0, -5)) + `<strong style="font-weight:900;color:var(--text);font-size:1.05em">${esc(v.slice(-5))}</strong>`;
     }
 
+    // ===== PENGECEKAN TAMBAHAN untuk handphone / tablet tertentu (cocok berdasarkan merk + tipe, RAM / memori bebas) =====
+    function extraChecks(it) {
+      const t = ' ' + String([it.merk, it.tipe].join(' ')).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+      const has = b => t.includes(' ' + b + ' ');
+      const out = [];
+      const DI = 'Device Info';
+      if (has('oppo') && /\ba\s*(77s?|79)\b/.test(t)) out.push('Wajib mengunduh data ' + DI + ' dari perangkat.');
+      const im = String(it.imei || '').trim();
+      if (im && (/^grt/i.test(im) || /[a-z]/i.test(im))) out.push('IMEI mengandung huruf (berawalan GRT / alfanumerik): lakukan pengecekan melalui ' + DI + '.');
+      if (has('oppo') && /\ba\s*78\b/.test(t)) out.push('Lakukan pengecekan melalui ' + DI + ' dan verifikasi bentuk kamera sesuai tipe.');
+      if (has('oppo') && /\ba\s*60\b/.test(t)) out.push('Lakukan pengecekan melalui ' + DI + ' dan pastikan tombol berada di sisi kanan perangkat.');
+      if (has('vivo') && /(^|\D)2019(\D|$)/.test(String(it.noModel || ''))) out.push('Periksa tulisan yang tertera pada bagian kamera perangkat.');
+      if (has('oppo') && /\bfind\s*x\s*7\b/.test(t)) out.push('Bandingkan bodi perangkat dengan pamflet untuk memastikan kesesuaian.');
+      if (has('vivo') && /\bv\s*40\s*lite\b/.test(t)) out.push('Bandingkan bodi perangkat dengan pamflet untuk memastikan kesesuaian.');
+      if (has('infinix') && /\bnote\s*12(\s*g\s*96)?\b(?!\s*(pro|vip|turbo)\b)/.test(t)) out.push('Verifikasi bentuk kamera sesuai tipe.');
+      if (has('vivo') && /\by\s*20\s*s(\s*g)?\b/.test(t)) out.push('Pastikan penentuan tipe perangkat sudah tepat.');
+      if (has('itel') && /\ba\s*100\s*cs?\b/.test(t)) out.push('Pastikan penentuan tipe perangkat sudah tepat.');
+      if (has('itel') && /\ba\s*100\s*cs?\b/.test(t)) out.push('Lakukan pengecekan melalui ' + DI + '.');
+      if (has('infinix') && (/\bhot\s*11\s*play\b/.test(t) || /\bsmart\s*[56]\b/.test(t) || /\bsmart\s*8\s*pro\b/.test(t))) out.push('Lakukan pengecekan melalui ' + DI + '.');
+      return out.filter((x, i) => out.indexOf(x) === i);
+    }
+    function extraChecksHtml(it) {
+      const n = extraChecks(it);
+      if (!n.length) return '';
+      return '<div class="pc-notice"><div class="pc-notice-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.4v.2"/></svg><span>Pengecekan Tambahan</span></div><div class="pc-notice-s">Lakukan sebelum menentukan hasil pemeriksaan.</div><ul>' + n.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
+    }
+
     function periksaCardHtml(it) {
       const plOnly = !it.wajibAsli;   // barang tidak turun: satu-satunya aksi = tandai PL (Ket), Mark tetap
       const isGG = String(it.kode || '').toUpperCase() === 'GG';
@@ -1687,6 +1734,7 @@
             <div class="pc-name">${esc(name)}</div>
           </div>
           ${spec}
+          ${plOnly ? '' : extraChecksHtml(it)}
           ${plOnly ? '<div class="pc-prev pl"><i></i><span>Tidak turun</span><b>Ada pelunasan?</b></div>' : prev}
           <div class="pc-actions">
             <div class="chk-actions" id="periksaActions">
@@ -1966,7 +2014,8 @@
     function buildIndex() {
       itemIndex = new Map();
       items.forEach(i => {
-        i.rak = fakturDay(cleanBarcode(i.noFaktur));
+        i._nf = cleanBarcode(i.noFaktur);
+        i.rak = fakturDay(i._nf);
         i.ketSalah = /salah rak/i.test(i.ket || '');
         { const sm = /salah rak di rak (\d+)/i.exec(i.ket || ''); i.ketSalahRak = sm ? +sm[1] : 0; }
         const km = /tidak sesuai:\s*([^|]*)/i.exec(i.ket || '');
@@ -2140,8 +2189,7 @@
             ${alreadyMarked ? `<div class="dupwarn"><b>SCAN GANDA</b><span>${esc(dupNote(n))}</span></div>` : ''}
             <div class="res-name">${esc(name)}</div>
             ${plLine}
-            ${d.imei ? `<div class="detail">IMEI: ${esc(d.imei)}</div>` : ''}
-            ${d.noPolisi ? `<div class="detail">Polisi: ${esc(d.noPolisi)}</div>` : ''}
+            <div class="detail">${extraHtml(d)}</div>
           </div>`;
       } else {
         resultEl.innerHTML = `
@@ -2150,6 +2198,7 @@
             <div class="title">${alreadyMarked ? 'Sudah di-Mark' : 'Berhasil di-Mark'}</div>
             ${alreadyMarked ? `<div class="dupwarn"><b>SCAN GANDA</b><span>${esc(dupNote(n))}</span></div>` : ''}
             <div class="res-name">${esc(name)}</div>
+            <div class="detail">${extraHtml(d)}</div>
             ${plLine}
           </div>`;
       }
@@ -2217,18 +2266,45 @@
     }
 
     // ===== Barcode tidak terbaca: cukup ketik beberapa digit TERAKHIR No Faktur, lalu pilih =====
-    function renderSuggest(v) {   // ketik >= 3 digit terakhir No Faktur -> saran langsung muncul
+    // Keterangan tambahan per kelompok: GB = No Polisi, GE = IMEI, GG = Berat
+    function extraHtml(i) {
+      const k = i.kode;
+      if (k === 'GB') return 'No Polisi: <b>' + esc(i.noPolisi || '-') + '</b>';
+      if (k === 'GE') return 'IMEI: ' + (i.imei ? imeiBold(i.imei) : '<b>-</b>');
+      if (k === 'GG') return 'Berat: <b>' + esc(i.beratKering || '-') + '</b>';
+      if (i.imei) return 'IMEI: ' + imeiBold(i.imei);
+      return i.noPolisi ? 'No Polisi: <b>' + esc(i.noPolisi) + '</b>' : '';
+    }
+    // Cari No Faktur: potongan angka di posisi mana pun (1 digit pun boleh); yang berakhiran sama diutamakan
+    function nfSearch(v) {
+      const out = [], inPeriksa = scanMode === 'periksa';
+      for (let n = 0; n < items.length; n++) {
+        const i = items[n];
+        if (!inGrp(i) || (!inPeriksa && (i.pl || i.rec))) continue;
+        const nf = i._nf || (i._nf = cleanBarcode(i.noFaktur));
+        const idx = nf.lastIndexOf(v);
+        if (idx < 0) continue;
+        out.push({ i, end: idx + v.length === nf.length ? 0 : 1, idx });
+      }
+      out.sort((a, b) => a.end - b.end || b.idx - a.idx);
+      const cand = out.map(x => x.i);
+      const belum = inPeriksa ? cand : cand.filter(i => i.mark !== 1);
+      return { cand, pick: belum.length ? belum : cand, onlyBelum: belum.length > 0 && belum.length < cand.length };
+    }
+    function hlNf(nf, v) {
+      const idx = nf.lastIndexOf(v);
+      if (idx < 0) return esc(nf);
+      return esc(nf.slice(0, idx)) + '<strong class="hl">' + esc(v) + '</strong>' + esc(nf.slice(idx + v.length));
+    }
+    function renderSuggest(v) {   // ketik >= 1 digit -> saran langsung muncul
       const box = document.getElementById('manualSuggest');
       if (!box) return;
       v = String(v || '').replace(/\D/g, '');
-      if (v.length < 3 || !items.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
-      let cand = items.filter(i => inGrp(i) && cleanBarcode(i.noFaktur).endsWith(v));
-      if (scanMode !== 'periksa') { const ok = cand.filter(i => !i.pl && !i.rec); cand = ok; }
-      const belum = scanMode === 'periksa' ? cand : cand.filter(i => i.mark !== 1);
-      const pick = belum.length ? belum : cand;
-      if (!pick.length) { box.innerHTML = '<div class="sug-head">Tidak ada No Faktur berakhiran ' + esc(v) + (scanGroup ? ' di ' + esc(scanGroup) : '') + '</div>'; box.classList.remove('hidden'); return; }
-      box.innerHTML = '<div class="sug-head">' + pick.length + ' saran' + (belum.length && belum.length < cand.length ? ' (yang belum ter-scan)' : '') + ' — ketuk untuk pilih</div>' +
-        pick.slice(0, 6).map(i => '<button type="button" class="sug-row' + (i.mark === 1 ? ' done' : '') + '" data-nf="' + esc(cleanBarcode(i.noFaktur)) + '" onclick="pickSuggest(this.dataset.nf)"><span class="sug-i"><span class="sug-nf">' + imeiBold(cleanBarcode(i.noFaktur)) + '</span><span class="sug-nm">' + esc([i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || '-') + '</span></span>' + (i.mark === 1 ? '<span class="sug-st">SUDAH</span>' : '') + '</button>').join('') +
+      if (!v || !items.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      const r = nfSearch(v), pick = r.pick;
+      if (!pick.length) { box.innerHTML = '<div class="sug-head">Tidak ada No Faktur yang mengandung ' + esc(v) + (scanGroup ? ' di ' + esc(scanGroup) : '') + '</div>'; box.classList.remove('hidden'); return; }
+      box.innerHTML = '<div class="sug-head">' + pick.length + ' saran' + (r.onlyBelum ? ' (yang belum ter-scan)' : '') + ' — ketuk untuk pilih</div>' +
+        pick.slice(0, 6).map(i => '<button type="button" class="sug-row' + (i.mark === 1 ? ' done' : '') + '" data-nf="' + esc(i._nf) + '" onclick="pickSuggest(this.dataset.nf)"><span class="sug-i"><span class="sug-nf">' + hlNf(i._nf, v) + '</span><span class="sug-nm">' + esc([i.jenis, i.merk, i.tipe].filter(Boolean).join(' • ') || '-') + '</span><span class="sug-ex">' + extraHtml(i) + '</span></span>' + (i.mark === 1 ? '<span class="sug-st">SUDAH</span>' : '') + '</button>').join('') +
         (pick.length > 6 ? '<div class="sug-head">+' + (pick.length - 6) + ' lainnya, tambah digit supaya lebih sedikit</div>' : '');
       box.classList.remove('hidden');
     }
@@ -2241,15 +2317,11 @@
       v = cleanBarcode(v);
       if (!v) return;
       if (itemIndex.has(v.toUpperCase()) || v.length >= 12) { doScan(v); return; }   // No Faktur lengkap
-      const cand = items.filter(i => inGrp(i) && !i.pl && !i.rec && cleanBarcode(i.noFaktur).endsWith(v));
-      const belum = cand.filter(i => i.mark !== 1);
-      const pick = belum.length ? belum : cand;
-      const el = document.getElementById('scanResult');
+      const pick = nfSearch(v).pick;
       if (!pick.length) { doScan(v); return; }
-      if (pick.length === 1) { document.getElementById('manualBarcode').value = ''; doScan(cleanBarcode(pick[0].noFaktur)); return; }
-      el.innerHTML = '<div class="result-box warning"><div class="title">' + pick.length + ' No Faktur berakhiran ' + esc(v) + '</div><div class="detail">Tap yang sesuai' + (belum.length ? ' (hanya yang belum ter-scan)' : '') + ':</div>' +
-        pick.slice(0, 8).map(i => '<button class="btn btn-outline btn-block" style="margin-top:6px;text-align:left" data-nf="' + esc(cleanBarcode(i.noFaktur)) + '" onclick="document.getElementById(\'manualBarcode\').value=\'\';doScan(this.dataset.nf)">' + esc(i.noFaktur) + ' · ' + esc([i.jenis, i.merk].filter(Boolean).join(' ')) + '</button>').join('') +
-        (pick.length > 8 ? '<div class="detail" style="margin-top:6px">Tambah digit supaya lebih sedikit</div>' : '') + '</div>';
+      if (pick.length === 1) { document.getElementById('manualBarcode').value = ''; renderSuggest(''); doScan(pick[0]._nf); return; }
+      renderSuggest(v);   // lebih dari satu: pilih dari daftar saran
+      toast(pick.length + ' No Faktur cocok — pilih dari saran', 'warning');
     }
     // Tandai "ada" tanpa scan (barcode rusak / tidak terbaca): Mark = 1, Ket = Manual
     function markManual(nf) {
@@ -2273,7 +2345,9 @@
       const item = itemIndex.get(code.toUpperCase());
       if (item) {
         // Mode rak: GE selain TV harus tanggal fakturnya = nomor rak
-        const wrong = !!(rakSel && item.rakItem && item.rak !== rakSel);
+        const already = item.mark === 1;
+        const rakMismatch = !!(rakSel && item.rakItem && item.rak !== rakSel);
+        const wrong = rakMismatch && !already;   // sudah pernah di-scan = GANDA (bukan salah rak, dan Ket tidak diubah)
         const rakMsg = item.rak ? 'pindah ke rak ' + item.rak : 'tanggal faktur tak terbaca';
         const rakLog = item.rak ? 'salah rak → ' + item.rak : 'tgl tak terbaca';
         // catatan di kolom Ket: tulis "Salah rak"; hapus lagi kalau nanti discan di rak yang benar
@@ -2281,7 +2355,7 @@
           item.ketSalah = true; item.ketSalahRak = rakSel;
           queueKet(item.noFaktur, 'Salah rak di rak ' + rakSel + ' (harusnya ' + item.rak + ')');
         }
-        if (!wrong && rakSel && item.rakItem && item.ketSalah) { item.ketSalah = false; queueKet(item.noFaktur, ''); }
+        if (!rakMismatch && rakSel && item.rakItem && item.ketSalah) { item.ketSalah = false; queueKet(item.noFaktur, ''); }
 
         if (wrong && !item.wajibTurun) {
           // salah rak tetap di-mark (+1), lalu notif salah rak
@@ -2294,13 +2368,16 @@
           return;
         }
 
-        const already = item.mark === 1;
         const nScan = bumpCount(item.noFaktur);
         if (!already) { item.mark = 1; queueSync(item.noFaktur); }
         const type = item.wajibTurun ? (already ? 'turundup' : 'turun') : (already ? 'dup' : 'ok');
         signalScan(type);
         addLog(code, item.wajibTurun ? 'turun' : type, item.wajibTurun ? (already ? 'WAJIB TURUN · GANDA ×' + nScan : 'WAJIB TURUN') : (already ? 'sudah ×' + nScan : 'ok'));
         renderResult(item, already, nScan);
+        if (already && item.rakItem && item.rak) {   // beri tahu barang ini milik rak berapa
+          const bx = document.querySelector('#scanResult .result-box');
+          if (bx) bx.insertAdjacentHTML('beforeend', `<div class="detail">Barang ini milik <b>rak ${esc(item.rak)}</b>${rakMismatch ? ' — bukan rak aktif (rak ' + esc(rakSel) + ')' : ''}</div>`);
+        }
         if (wrong) {   // wajib turun + salah rak: notif turun dulu, lalu salah rak
           addLog(code, 'rak', rakLog);
           const box = document.querySelector('#scanResult .result-box');
@@ -2484,9 +2561,11 @@
       }
     }
 
-    function decodeZx(v) {
+    function decodeZx(v, rc) {
       const vw = v.videoWidth, vh = v.videoHeight;
-      const sx = Math.round(vw * 0.03), sw = Math.round(vw * 0.94), sy = Math.round(vh * 0.12), sh = Math.round(vh * 0.76);
+      rc = rc || aimRect(v);   // hanya baca area kotak bidik (lebih cepat, dan barang di luar kotak tidak ikut terbaca)
+      const sx = Math.max(0, Math.round(rc.x)), sy = Math.max(0, Math.round(rc.y));
+      const sw = Math.min(vw - sx, Math.round(rc.w)), sh = Math.min(vh - sy, Math.round(rc.h));
       const sc = Math.min(1, 1800 / sw);
       const w = Math.round(sw * sc), h = Math.round(sh * sc);
       if (!zxCanvas) zxCanvas = document.createElement('canvas');
@@ -2587,21 +2666,63 @@
       }
     }
 
+    let typingUntil = 0;   // saat sedang mengetik No Faktur, decode kamera dijeda sebentar supaya HP tidak lemot
+    // Area kotak bidik dalam piksel video (video memakai object-fit: cover)
+    function aimRect(v) {
+      const wrap = document.getElementById('camWrap');
+      const vw = v.videoWidth, vh = v.videoHeight, cw = (wrap && wrap.clientWidth) || vw, ch = (wrap && wrap.clientHeight) || vh;
+      const sc = Math.max(cw / vw, ch / vh), visW = cw / sc, visH = ch / sc, ox = (vw - visW) / 2, oy = (vh - visH) / 2;
+      return { x: ox + visW * 0.08, y: oy + visH * 0.20, w: visW * 0.84, h: visH * 0.60 };
+    }
+    function boxCenter(x) {
+      const b = x.boundingBox;
+      if (b) return [b.x + b.width / 2, b.y + b.height / 2];
+      const c = x.cornerPoints;
+      return c && c.length ? [c.reduce((a, p) => a + p.x, 0) / c.length, c.reduce((a, p) => a + p.y, 0) / c.length] : null;
+    }
+    function inAim(x, rc) { const c = boxCenter(x); return !c || (c[0] >= rc.x && c[0] <= rc.x + rc.w && c[1] >= rc.y && c[1] <= rc.y + rc.h); }
+    function nearestAim(list, rc) {
+      const mx = rc.x + rc.w / 2, my = rc.y + rc.h / 2;
+      return list.slice().sort((a, b) => { const ca = boxCenter(a) || [mx, my], cb = boxCenter(b) || [mx, my]; return Math.hypot(ca[0] - mx, ca[1] - my) - Math.hypot(cb[0] - mx, cb[1] - my); })[0];
+    }
+    function confirmHold(c) {   // kode yang sama harus terbaca terus selama HOLD_MS (barcode yang cuma lewat tidak diproses)
+      const now = Date.now();
+      if (c !== holdCode || now - holdLast > 600) { holdCode = c; holdSince = now; }
+      holdLast = now;
+      return now - holdSince >= HOLD_MS;
+    }
+    function setPause(p) {
+      scanPaused = !!p; holdCode = '';
+      const ov = document.getElementById('camPause'), b = document.getElementById('btnPause');
+      if (ov) ov.classList.toggle('hidden', !scanPaused);
+      if (b) b.innerHTML = scanPaused ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>';
+      if (scanPaused) setCamStatus('Scan dijeda — ketuk ▶ untuk lanjut', 'warn');
+      else setCamStatus(IDLE_OK, '');
+    }
+    function togglePause() { if (isScanning) setPause(!scanPaused); }
+
     async function scanLoop(gen) {
       if (!isScanning || gen !== loopGen) return;
+      if (scanPaused || Date.now() < typingUntil) { loopTimer = setTimeout(() => scanLoop(gen), 200); return; }
       const v = videoEl;
       if (v && v.readyState >= 2 && v.videoWidth) {
         try {
-          let code = null, seenButEmpty = false;
+          let code = null, seenButEmpty = false, outside = false;
+          const rc = aimRect(v);
           if (detector) {
             const r = await detector.detect(v);
-            const hit = r.find(x => x.rawValue);
-            if (hit) code = hit.rawValue; else if (r.length) seenButEmpty = true;
-            if (!code && zxReader && (++zxFallN % 3 === 0)) code = decodeZx(v);   // barcode rapat: ZXing teliti sebagai cadangan
+            const withVal = r.filter(x => x.rawValue), inside = withVal.filter(x => inAim(x, rc));
+            if (inside.length) code = nearestAim(inside, rc).rawValue;   // hanya barcode di dalam kotak bidik
+            else if (withVal.length) outside = true;
+            else if (r.length) seenButEmpty = true;
+            if (!code && !outside && zxReader && (++zxFallN % 3 === 0)) code = decodeZx(v, rc);   // barcode rapat: ZXing teliti sebagai cadangan
           } else {
-            code = decodeZx(v);
+            code = decodeZx(v, rc);
           }
-          if (code) handleDecoded(code);
+          if (code) {
+            if (confirmHold(code)) handleDecoded(code);
+            else setCamStatus('Tahan sebentar…', '', 350);
+          } else if (outside) setCamStatus('Arahkan barcode ke dalam kotak bidik', 'warn', 600);
           else if (seenButEmpty) setCamStatus('Kode terdeteksi tapi isinya tidak terbaca — dekatkan / tahan stabil', 'warn', 800);
           else idleStatus();
         } catch (e) {}
@@ -2668,6 +2789,7 @@
     }
 
     async function stopScan() {
+      setPause(false);
       isScanning = false;
       loopGen++;
       clearTimeout(loopTimer);
@@ -2699,7 +2821,7 @@
             <div class="info">
               <div class="top"><span class="tag">${esc(i.kode || '-')}</span>${i.pl ? '<span class="tag tag-pl">PL</span>' : ''}${i.rec ? '<span class="tag tag-pl">REC</span>' : ''}<span class="nf">${esc(i.noFaktur)}</span>${i.rakItem && i.rak ? '<span class="rak-chip">Rak ' + i.rak + '</span>' : ''}${i.wajibTurun ? (i.periksa ? `<span class="pstat ${i.periksa === 'ok' ? 'ok' : 'bad'}" style="margin-left:auto">${i.periksa === 'ok' ? 'SESUAI' : 'TIDAK SESUAI'}</span>` : '<span class="badge-turun">TURUN</span>') : ''}</div>
               <div class="name">${esc(name)}</div>
-              <div class="meta">${i.imei ? 'IMEI: ' + esc(i.imei) : (i.noPolisi ? 'Polisi: ' + esc(i.noPolisi) : '')}</div>
+              <div class="meta">${extraHtml(i)}</div>
             </div>
             <div class="ibtns">${(i.mark !== 1 && !i.pl && !i.rec) ? `<button class="pl-btn" data-nf="${esc(i.noFaktur)}" onclick="markManual(this.dataset.nf)">Ada</button>` : ''}<button class="pl-btn ${i.pl ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="togglePL(this.dataset.nf)">${i.pl ? 'Batal PL' : 'PL'}</button>${(i.wajibAsli && !i.rec) ? '' : `<button class="pl-btn ${i.rec ? 'on' : ''}" data-nf="${esc(i.noFaktur)}" onclick="toggleRec(this.dataset.nf)">${i.rec ? 'Batal Rec' : 'Rec'}</button>`}</div>
           </div>`;
@@ -2718,7 +2840,7 @@
 
       if (q) {
         list = list.filter(i => {
-          const s = [i.noFaktur, i.kode, (i.rakItem ? 'rak ' + i.rak : ''), i.jenis, i.merk, i.tipe, i.imei, i.noPolisi].join(' ').toLowerCase();
+          const s = [i.noFaktur, i.kode, (i.rakItem ? 'rak ' + i.rak : ''), i.jenis, i.merk, i.tipe, i.imei, i.noPolisi, i.beratKering].join(' ').toLowerCase();
           return s.includes(q);
         });
       }
